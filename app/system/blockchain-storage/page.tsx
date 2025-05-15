@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Database, FileText, CheckCircle, AlertTriangle, RefreshCw } from "lucide-react"
+import { ArrowLeft, Database, FileText, CheckCircle, AlertTriangle, RefreshCw, ExternalLink } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
@@ -389,6 +389,12 @@ export default function BlockchainStoragePage() {
     }
   }
 
+  const openTxInExplorer = (txHash: string) => {
+    if (txHash) {
+      window.open(`https://sepolia.etherscan.io/tx/${txHash}`, "_blank")
+    }
+  }
+
   return (
     <div className="container mx-auto max-w-6xl px-4 py-8">
       <div className="mb-6 flex items-center gap-2">
@@ -439,9 +445,17 @@ export default function BlockchainStoragePage() {
                       </div>
                       <div className="flex items-center gap-3">
                         {getStatusBadge(enrollment.status)}
-                        {enrollment.status === "stored" && (
-                          <div className="hidden text-xs text-gray-500 sm:block">
-                            TX: {enrollment.txHash?.substring(0, 10)}...
+                        {enrollment.status === "stored" && enrollment.txHash && (
+                          <div className="hidden sm:flex items-center gap-1">
+                            <span className="text-xs text-gray-500">TX:</span>
+                            <button
+                              onClick={() => openTxInExplorer(enrollment.txHash!)}
+                              className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                              title="View transaction on Sepolia Explorer"
+                            >
+                              {enrollment.txHash.substring(0, 10)}...
+                              <ExternalLink className="h-3 w-3" />
+                            </button>
                           </div>
                         )}
                         {enrollment.status === "failed" && (
@@ -503,9 +517,18 @@ export default function BlockchainStoragePage() {
                             : "Storing enrollment data on the blockchain..."}
                         </p>
                         {hash && (
-                          <p className="mt-1 text-xs text-gray-500">
-                            TX: {hash.substring(0, 10)}...{hash.substring(hash.length - 8)}
-                          </p>
+                          <div className="mt-1 flex items-center gap-1">
+                            <span className="text-xs text-gray-500">TX:</span>
+                            <a
+                              href={`https://sepolia.etherscan.io/tx/${hash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                            >
+                              {hash.substring(0, 10)}...{hash.substring(hash.length - 8)}
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -549,10 +572,16 @@ export default function BlockchainStoragePage() {
                           </div>
                           <div className="flex justify-between">
                             <span>Contract Address:</span>
-                            <span className="font-medium text-xs">
+                            <a
+                              href={`https://sepolia.etherscan.io/address/${UNIVERSITY_CONTRACT_ADDRESS}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 font-medium text-xs text-blue-600 hover:underline"
+                            >
                               {UNIVERSITY_CONTRACT_ADDRESS.substring(0, 6)}...
                               {UNIVERSITY_CONTRACT_ADDRESS.substring(38)}
-                            </span>
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
                           </div>
                         </div>
                       </div>

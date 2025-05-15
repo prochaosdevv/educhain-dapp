@@ -10,14 +10,20 @@ import { ArrowLeft, Database, Search, Download, ExternalLink, FileText, AlertCir
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { getCertificatesByStudentId, getCertificateByIpfsCid } from "@/app/actions/mongodb-actions"
+import {
+  getCertificatesByStudentId,
+  getCertificateByIpfsCid,
+  getCertificateByTxHash,
+} from "@/app/actions/mongodb-actions"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { SuccessMessage } from "@/components/success-message"
 import { CustomConnectButton } from "@/components/custom-connect-button"
 
 export default function RetrieveDataPage() {
   const [searchQuery, setSearchQuery] = useState("")
+  const [txHashQuery, setTxHashQuery] = useState("")
   const [isSearching, setIsSearching] = useState(false)
+  const [isTxSearching, setIsTxSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [selectedCertificate, setSelectedCertificate] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
@@ -71,6 +77,36 @@ export default function RetrieveDataPage() {
     }
   }
 
+  const handleTxSearch = async () => {
+    if (!txHashQuery) return
+
+    setIsTxSearching(true)
+    setSearchResults([])
+    setSelectedCertificate(null)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      // Search by transaction hash
+      const result = await getCertificateByTxHash(txHashQuery)
+
+      if (result.success && result.data) {
+        setSearchResults(Array.isArray(result.data) ? result.data : [result.data])
+        setSuccess({
+          title: "Certificate Found",
+          message: `Found certificate with transaction hash: ${txHashQuery.substring(0, 10)}...`,
+        })
+      } else {
+        setError("No certificate found with this transaction hash. Please check and try again.")
+      }
+    } catch (err) {
+      console.error("Error searching by transaction hash:", err)
+      setError("Failed to search by transaction hash. Please try again later.")
+    } finally {
+      setIsTxSearching(false)
+    }
+  }
+
   const handleViewCertificate = (certificate: any) => {
     setSelectedCertificate(certificate)
   }
@@ -78,6 +114,12 @@ export default function RetrieveDataPage() {
   const handleViewPDF = (certificate: any) => {
     if (certificate && certificate.fileUrl) {
       window.open(certificate.fileUrl, "_blank")
+    }
+  }
+
+  const openTxInExplorer = (txHash: string) => {
+    if (txHash) {
+      window.open(`https://sepolia.etherscan.io/tx/${txHash}`, "_blank")
     }
   }
 
@@ -139,9 +181,14 @@ export default function RetrieveDataPage() {
               <div className="space-y-2">
                 <Label htmlFor="txHash">Blockchain Transaction Hash</Label>
                 <div className="flex gap-2">
-                  <Input id="txHash" placeholder="Enter transaction hash (0x...)" />
-                  <Button>
-                    Retrieve
+                  <Input
+                    id="txHash"
+                    placeholder="Enter transaction hash (0x...)"
+                    value={txHashQuery}
+                    onChange={(e) => setTxHashQuery(e.target.value)}
+                  />
+                  <Button onClick={handleTxSearch} disabled={isTxSearching || !txHashQuery}>
+                    {isTxSearching ? "Searching..." : "Retrieve"}
                     <Search className="ml-2 h-4 w-4" />
                   </Button>
                 </div>
@@ -275,9 +322,20 @@ export default function RetrieveDataPage() {
                         )}
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-medium">Blockchain Reference:</span>
-                          <code className="rounded bg-gray-100 px-2 py-1 text-xs">
-                            {selectedCertificate.blockchainReference || "Not available"}
-                          </code>
+                          {selectedCertificate.blockchainReference ? (
+                            <a
+                              href={`https://sepolia.etherscan.io/tx/${selectedCertificate.blockchainReference}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline"
+                            >
+                              <code className="rounded bg-gray-100 px-2 py-1 text-xs">
+                                {selectedCertificate.blockchainReference.substring(0, 10)}...
+                              </code>
+                            </a>
+                          ) : (
+                            <code className="rounded bg-gray-100 px-2 py-1 text-xs">Not available</code>
+                          )}
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-medium">Timestamp:</span>

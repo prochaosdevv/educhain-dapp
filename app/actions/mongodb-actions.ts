@@ -200,3 +200,24 @@ export async function getEnrollmentByIpfsCid(
     }
   }
 }
+
+// Add this function to the existing file
+export async function getCertificateByTxHash(txHash: string) {
+  try {
+    const client = await clientPromise
+    const db = client.db("blockchain_certificates")
+    const certificates = db.collection("certificates")
+
+    // Search for certificates with the given transaction hash
+    const certificate = await certificates.findOne({ blockchainReference: txHash })
+
+    if (!certificate) {
+      return { success: false, message: "No certificate found with this transaction hash" }
+    }
+
+    return { success: true, data: certificate }
+  } catch (error) {
+    console.error("Error fetching certificate by transaction hash:", error)
+    return { success: false, message: "Failed to fetch certificate" }
+  }
+}
