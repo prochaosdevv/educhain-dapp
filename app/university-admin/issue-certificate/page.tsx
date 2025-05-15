@@ -19,6 +19,7 @@ import { storeCertificateInMongoDB } from "@/app/actions/mongodb-actions"
 import { useAccount } from "wagmi"
 import { useRouter } from "next/navigation"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { SuccessMessage } from "@/components/success-message"
 
 export default function IssueCertificatePage() {
   const { toast } = useToast()
@@ -33,6 +34,7 @@ export default function IssueCertificatePage() {
   const [fileName, setFileName] = useState("")
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [success, setSuccess] = useState<{ title: string; message: string } | null>(null)
 
   // Form data
   const [formData, setFormData] = useState({
@@ -145,10 +147,9 @@ export default function IssueCertificatePage() {
           const mongoResult = await storeCertificateInMongoDB(mongoData)
 
           if (mongoResult.success) {
-            toast({
-              title: "Certificate Issued",
-              description:
-                "The certificate has been successfully issued, stored on IPFS, and recorded in the database.",
+            setSuccess({
+              title: "Certificate Issued Successfully",
+              message: "The certificate has been successfully issued, stored on IPFS, and recorded in the database.",
             })
 
             // Log the IPFS URL for reference
@@ -210,6 +211,8 @@ export default function IssueCertificatePage() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+
+      {success && <SuccessMessage title={success.title} message={success.message} />}
 
       <Card>
         <CardHeader>

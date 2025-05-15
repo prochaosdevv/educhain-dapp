@@ -1,64 +1,112 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Download, GraduationCap, Share2, QrCode, CheckCircle2 } from "lucide-react"
+import { ArrowLeft, Download, GraduationCap, Share2, QrCode, CheckCircle2, Loader2, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import { getCertificatesByStudentId } from "@/app/actions/mongodb-actions"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { SuccessMessage } from "@/components/success-message"
+import { CustomConnectButton } from "@/components/custom-connect-button"
 
 export default function ViewCertificatePage() {
-  const [certificateId, setCertificateId] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [certificateFound, setCertificateFound] = useState(false)
+  const [studentId, setStudentId] = useState("")
+  const [isPending, startTransition] = useTransition()
+  const [certificates, setCertificates] = useState<any[]>([])
+  const [selectedCertificate, setSelectedCertificate] = useState<any>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<{ title: string; message: string } | null>(null)
 
   const handleSearch = () => {
-    if (!certificateId) return
+    if (!studentId) return
 
-    setIsLoading(true)
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false)
-      setCertificateFound(true)
-    }, 1500)
+    setError(null)
+    setSuccess(null)
+    setCertificates([])
+    setSelectedCertificate(null)
+
+    startTransition(async () => {
+      try {
+        const result = await getCertificatesByStudentId(studentId)
+
+        if (result.success && result.data && result.data.length > 0) {
+          setCertificates(result.data)
+          setSelectedCertificate(result.data[0]) // Select the first certificate by default
+          setSuccess({
+            title: "Certificates Found",
+            message: `Found ${result.data.length} certificate(s) for student ID ${studentId}.`,
+          })
+        } else {
+          setError("No certificates found for this student ID. Please check the ID and try again.")
+        }
+      } catch (err) {
+        console.error("Error fetching certificates:", err)
+        setError("Failed to fetch certificates. Please try again later.")
+      }
+    })
+  }
+
+  const handleCertificateSelect = (certificate: any) => {
+    setSelectedCertificate(certificate)
   }
 
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8">
-      <div className="mb-6 flex items-center gap-2">
-        <Link href="/" className="flex items-center text-green-600 hover:text-green-800">
-          <ArrowLeft className="mr-1 h-4 w-4" />
-          Back to Home
-        </Link>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2">
+          <Link href="/" className="flex items-center text-green-600 hover:text-green-800">
+            <ArrowLeft className="mr-1 h-4 w-4" />
+            Back to Home
+          </Link>
+          <div className="flex items-center gap-3">
+            <GraduationCap className="h-8 w-8 text-green-700" />
+            <h1 className="text-3xl font-bold">View Certificate</h1>
+          </div>
+        </div>
+        <CustomConnectButton />
       </div>
 
-      <div className="mb-6 flex items-center gap-3">
-        <GraduationCap className="h-8 w-8 text-green-700" />
-        <h1 className="text-3xl font-bold">View Certificate</h1>
-      </div>
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
-      {!certificateFound ? (
+      {success && <SuccessMessage title={success.title} message={success.message} />}
+
+      {!selectedCertificate ? (
         <Card>
           <CardHeader>
             <CardTitle>Find Your Certificate</CardTitle>
-            <CardDescription>Enter your certificate ID or student ID to view your certificates</CardDescription>
+            <CardDescription>Enter your student ID to view your certificates</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="certificateId">Certificate ID or Student ID</Label>
+                <Label htmlFor="studentId">Student ID</Label>
                 <div className="flex gap-2">
                   <Input
-                    id="certificateId"
-                    placeholder="Enter ID"
-                    value={certificateId}
-                    onChange={(e) => setCertificateId(e.target.value)}
+                    id="studentId"
+                    placeholder="Enter your student ID"
+                    value={studentId}
+                    onChange={(e) => setStudentId(e.target.value)}
                   />
-                  <Button onClick={handleSearch} disabled={isLoading || !certificateId}>
-                    {isLoading ? "Searching..." : "Search"}
+                  <Button onClick={handleSearch} disabled={isPending || !studentId}>
+                    {isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Searching...
+                      </>
+                    ) : (
+                      "Search"
+                    )}
                   </Button>
                 </div>
               </div>
@@ -74,7 +122,9 @@ export default function ViewCertificatePage() {
                   <CheckCircle2 className="h-5 w-5 text-green-600" />
                   <span className="text-sm font-medium text-green-800">Verified on Blockchain</span>
                 </div>
-                <div className="text-sm text-gray-500">Certificate ID: CERT-2023-78945</div>
+                <div className="text-sm text-gray-500">
+                  Certificate ID: {selectedCertificate.ipfsCid.substring(0, 10)}...
+                </div>
               </div>
             </div>
             <CardContent className="p-6">
@@ -94,11 +144,15 @@ export default function ViewCertificatePage() {
 
               <div className="mb-8 text-center">
                 <h3 className="text-xl font-medium">This certifies that</h3>
-                <p className="my-2 text-3xl font-bold">Ahmad Bin Abdullah</p>
+                <p className="my-2 text-3xl font-bold">{selectedCertificate.studentName}</p>
                 <p className="text-gray-600">has successfully completed the requirements for the degree of</p>
-                <p className="my-2 text-2xl font-semibold">Bachelor of Computer Science</p>
-                <p className="text-gray-600">with honors</p>
-                <p className="mt-4 text-gray-600">Awarded on May 15, 2023</p>
+                <p className="my-2 text-2xl font-semibold">{selectedCertificate.program}</p>
+                <p className="text-gray-600">
+                  {selectedCertificate.achievements && `with ${selectedCertificate.achievements}`}
+                </p>
+                <p className="mt-4 text-gray-600">
+                  Awarded on {new Date(selectedCertificate.issueDate).toLocaleDateString()}
+                </p>
               </div>
 
               <div className="flex flex-wrap justify-center gap-4">
@@ -155,27 +209,27 @@ export default function ViewCertificatePage() {
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
                       <h4 className="text-sm font-medium text-gray-500">Student Name</h4>
-                      <p>Ahmad Bin Abdullah</p>
+                      <p>{selectedCertificate.studentName}</p>
                     </div>
                     <div>
                       <h4 className="text-sm font-medium text-gray-500">Student ID</h4>
-                      <p>STU-2019-12345</p>
+                      <p>{selectedCertificate.studentId}</p>
                     </div>
                     <div>
                       <h4 className="text-sm font-medium text-gray-500">Program</h4>
-                      <p>Bachelor of Computer Science</p>
+                      <p>{selectedCertificate.program}</p>
                     </div>
                     <div>
                       <h4 className="text-sm font-medium text-gray-500">Graduation Date</h4>
-                      <p>May 15, 2023</p>
+                      <p>{new Date(selectedCertificate.graduationDate).toLocaleDateString()}</p>
                     </div>
                     <div>
-                      <h4 className="text-sm font-medium text-gray-500">CGPA</h4>
-                      <p>3.85/4.00</p>
+                      <h4 className="text-sm font-medium text-gray-500">Certificate Type</h4>
+                      <p>{selectedCertificate.certificateType}</p>
                     </div>
                     <div>
                       <h4 className="text-sm font-medium text-gray-500">Honors</h4>
-                      <p>Summa Cum Laude</p>
+                      <p>{selectedCertificate.achievements || "None"}</p>
                     </div>
                   </div>
                 </TabsContent>
@@ -184,24 +238,31 @@ export default function ViewCertificatePage() {
                     <h4 className="mb-2 font-medium">Blockchain Verification</h4>
                     <div className="space-y-2 text-sm">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium">Transaction Hash:</span>
-                        <code className="rounded bg-gray-100 px-2 py-1 text-xs">
-                          0x7f9e8d7c6b5a4e3d2c1b0a9f8e7d6c5b4a3f2e1d
-                        </code>
+                        <span className="font-medium">IPFS CID:</span>
+                        <code className="rounded bg-gray-100 px-2 py-1 text-xs">{selectedCertificate.ipfsCid}</code>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium">Block Number:</span>
-                        <code className="rounded bg-gray-100 px-2 py-1 text-xs">15784236</code>
+                        <span className="font-medium">Blockchain Reference:</span>
+                        <code className="rounded bg-gray-100 px-2 py-1 text-xs">
+                          {selectedCertificate.blockchainReference || "Not available"}
+                        </code>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium">Timestamp:</span>
-                        <span>2023-05-15 10:23:45 UTC</span>
+                        <span>{new Date(selectedCertificate.issuedAt).toLocaleString()}</span>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium">Certificate Hash:</span>
-                        <code className="rounded bg-gray-100 px-2 py-1 text-xs">
-                          bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi
-                        </code>
+                        <span className="font-medium">Issuer:</span>
+                        <code className="rounded bg-gray-100 px-2 py-1 text-xs">{selectedCertificate.issuer}</code>
+                      </div>
+                      <div className="mt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(selectedCertificate.ipfsUrl, "_blank")}
+                        >
+                          View on IPFS
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -214,7 +275,9 @@ export default function ViewCertificatePage() {
                       </div>
                       <div>
                         <h4 className="font-medium">Certificate Issued</h4>
-                        <p className="text-sm text-gray-500">May 15, 2023 - 10:23:45 UTC</p>
+                        <p className="text-sm text-gray-500">
+                          {new Date(selectedCertificate.issuedAt).toLocaleString()}
+                        </p>
                         <p className="text-sm">Certificate was issued by University of Technology</p>
                       </div>
                     </div>
@@ -223,9 +286,11 @@ export default function ViewCertificatePage() {
                         2
                       </div>
                       <div>
-                        <h4 className="font-medium">Stored on Blockchain</h4>
-                        <p className="text-sm text-gray-500">May 15, 2023 - 10:25:12 UTC</p>
-                        <p className="text-sm">Certificate hash was stored on the blockchain</p>
+                        <h4 className="font-medium">Stored on IPFS</h4>
+                        <p className="text-sm text-gray-500">
+                          {new Date(selectedCertificate.createdAt).toLocaleString()}
+                        </p>
+                        <p className="text-sm">Certificate data was stored on IPFS</p>
                       </div>
                     </div>
                     <div className="flex gap-4 rounded-md border p-3">
@@ -234,7 +299,7 @@ export default function ViewCertificatePage() {
                       </div>
                       <div>
                         <h4 className="font-medium">Viewed by Student</h4>
-                        <p className="text-sm text-gray-500">May 16, 2023 - 14:30:22 UTC</p>
+                        <p className="text-sm text-gray-500">{new Date().toLocaleString()}</p>
                         <p className="text-sm">Certificate was viewed by the student</p>
                       </div>
                     </div>
@@ -243,6 +308,41 @@ export default function ViewCertificatePage() {
               </Tabs>
             </CardContent>
           </Card>
+
+          {certificates.length > 1 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Your Certificates</CardTitle>
+                <CardDescription>You have {certificates.length} certificates available</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {certificates.map((cert, index) => (
+                    <Card
+                      key={index}
+                      className={`cursor-pointer hover:border-green-300 transition-colors ${
+                        selectedCertificate.ipfsCid === cert.ipfsCid ? "border-green-500 bg-green-50" : ""
+                      }`}
+                      onClick={() => handleCertificateSelect(cert)}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-3">
+                          <GraduationCap className="h-5 w-5 text-green-600" />
+                          <div>
+                            <h3 className="font-medium">{cert.certificateType}</h3>
+                            <p className="text-sm text-gray-500">{cert.program}</p>
+                            <p className="text-xs text-gray-400">
+                              Issued: {new Date(cert.issueDate).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
     </div>

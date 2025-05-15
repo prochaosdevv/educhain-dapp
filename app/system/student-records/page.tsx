@@ -4,13 +4,15 @@ import { useState, useTransition } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { ArrowLeft, Database, Search, ExternalLink, FileText, GraduationCap } from "lucide-react"
+import { ArrowLeft, Database, Search, ExternalLink, FileText, GraduationCap, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { getCertificatesByStudentId, getEnrollmentsByStudentId } from "@/app/actions/mongodb-actions"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { CustomConnectButton } from "@/components/custom-connect-button"
+import { SuccessMessage } from "@/components/success-message"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function StudentRecordsPage() {
   const { toast } = useToast()
@@ -19,9 +21,16 @@ export default function StudentRecordsPage() {
   const [certificates, setCertificates] = useState<any[]>([])
   const [enrollments, setEnrollments] = useState<any[]>([])
   const [hasSearched, setHasSearched] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<{ title: string; message: string } | null>(null)
 
   const handleSearch = () => {
     if (!studentId) return
+
+    setError(null)
+    setSuccess(null)
+    setCertificates([])
+    setEnrollments([])
 
     startTransition(async () => {
       try {
@@ -43,19 +52,19 @@ export default function StudentRecordsPage() {
 
         setHasSearched(true)
 
-        toast({
-          title: "Records Retrieved",
-          description: `Found ${certResult.data?.length || 0} certificates and ${
-            enrollResult.data?.length || 0
-          } enrollment records.`,
-        })
+        if ((certResult.data?.length || 0) > 0 || (enrollResult.data?.length || 0) > 0) {
+          setSuccess({
+            title: "Records Retrieved",
+            message: `Found ${certResult.data?.length || 0} certificates and ${
+              enrollResult.data?.length || 0
+            } enrollment records.`,
+          })
+        } else {
+          setError("No records found for this student ID. Please check the ID and try again.")
+        }
       } catch (error) {
         console.error("Error fetching student records:", error)
-        toast({
-          title: "Error",
-          description: "Failed to fetch student records. Please try again.",
-          variant: "destructive",
-        })
+        setError("Failed to fetch student records. Please try again.")
         setCertificates([])
         setEnrollments([])
       }
@@ -77,6 +86,16 @@ export default function StudentRecordsPage() {
         </div>
         <CustomConnectButton />
       </div>
+
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {success && <SuccessMessage title={success.title} message={success.message} />}
 
       <Card className="mb-6">
         <CardHeader>

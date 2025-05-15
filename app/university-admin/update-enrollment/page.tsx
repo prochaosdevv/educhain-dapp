@@ -17,6 +17,7 @@ import { uploadJSONToPinata } from "@/app/actions/ipfs-actions"
 import { storeEnrollmentInMongoDB } from "@/app/actions/mongodb-actions"
 import { useAccount } from "wagmi"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { SuccessMessage } from "@/components/success-message"
 
 export default function UpdateEnrollmentPage() {
   const { toast } = useToast()
@@ -24,6 +25,7 @@ export default function UpdateEnrollmentPage() {
   const [isPending, startTransition] = useTransition()
   const [isActive, setIsActive] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<{ title: string; message: string } | null>(null)
 
   // Form data state
   const [formData, setFormData] = useState({
@@ -99,9 +101,9 @@ export default function UpdateEnrollmentPage() {
           const mongoResult = await storeEnrollmentInMongoDB(mongoData)
 
           if (mongoResult.success) {
-            toast({
-              title: "Enrollment Updated",
-              description:
+            setSuccess({
+              title: "Enrollment Updated Successfully",
+              message:
                 "The student enrollment status has been successfully updated, stored on IPFS, and recorded in the database.",
             })
 
@@ -162,6 +164,7 @@ export default function UpdateEnrollmentPage() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+      {success && <SuccessMessage title={success.title} message={success.message} />}
 
       <Card>
         <CardHeader>
