@@ -15,6 +15,7 @@ import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { CustomConnectButton } from "@/components/custom-connect-button"
 import { uploadFileToPinata, uploadJSONToPinata } from "@/app/actions/ipfs-actions"
+import { storeCertificateInMongoDB } from "@/app/actions/mongodb-actions"
 import { useAccount } from "wagmi"
 import { useRouter } from "next/navigation"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -120,28 +121,57 @@ export default function IssueCertificatePage() {
         const result = await uploadJSONToPinata(certificateData, `certificate-${formData.studentId}.json`)
 
         if (result.success && result.data) {
-          toast({
-            title: "Certificate Issued",
-            description: "The certificate has been successfully issued and stored on IPFS via Pinata.",
-          })
+          // Store the certificate data in MongoDB
+          const mongoData = {
+            studentId: formData.studentId,
+            studentName: formData.studentName,
+            program: formData.program,
+            certificateType,
+            issueDate: issueDate?.toISOString() || new Date().toISOString(),
+            graduationDate: formData.graduationDate,
+            achievements: formData.achievements,
+            ipfsCid: result.data.cid,
+            ipfsUrl: result.data.url,
+            fileCid: fileCID || undefined,
+            fileUrl: fileUrl || undefined,
+            fileName: fileName || undefined,
+            issuer: address || "unknown",
+            issuedAt: new Date().toISOString(),
+            blockchainReference: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`, // Mock blockchain reference
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }
 
-          // Log the IPFS URL for reference
-          console.log("Certificate stored at:", result.data.url)
+          const mongoResult = await storeCertificateInMongoDB(mongoData)
 
-          // Reset form after successful submission
-          setFormData({
-            studentId: "",
-            studentName: "",
-            program: "",
-            achievements: "",
-            graduationDate: "",
-          })
-          setCertificateType("")
-          setIssueDate(undefined)
-          setFileCID("")
-          setFileUrl("")
-          setFileName("")
-          if (fileInputRef.current) fileInputRef.current.value = ""
+          if (mongoResult.success) {
+            toast({
+              title: "Certificate Issued",
+              description:
+                "The certificate has been successfully issued, stored on IPFS, and recorded in the database.",
+            })
+
+            // Log the IPFS URL for reference
+            console.log("Certificate stored at:", result.data.url)
+            console.log("MongoDB ID:", mongoResult.id)
+
+            // Reset form after successful submission
+            setFormData({
+              studentId: "",
+              studentName: "",
+              program: "",
+              achievements: "",
+              graduationDate: "",
+            })
+            setCertificateType("")
+            setIssueDate(undefined)
+            setFileCID("")
+            setFileUrl("")
+            setFileName("")
+            if (fileInputRef.current) fileInputRef.current.value = ""
+          } else {
+            throw new Error(mongoResult.message)
+          }
         } else {
           throw new Error(result.message)
         }

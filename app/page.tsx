@@ -181,7 +181,7 @@ export default function Home() {
           </Card>
 
           {/* System */}
-          <Card className="overflow-hidden border-2 border-gray-200 dark:border-gray-700 md:col-span-2 lg:col-span-1">
+          <Card className="overflow-hidden border-2 border-gray-200 dark:border-gray-700 md:col-span-2 lg:col-span-2">
             <CardHeader className="bg-gray-100 dark:bg-gray-800">
               <div className="flex items-center gap-3">
                 <Database className="h-8 w-8 text-gray-700 dark:text-gray-300" />
@@ -194,12 +194,15 @@ export default function Home() {
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   Automated blockchain operations for certificate management
                 </p>
-                <div className="flex flex-col space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <Link href="/system/blockchain-storage">
                     <Button className="w-full bg-gray-600 hover:bg-gray-700">Store Certificate on Blockchain</Button>
                   </Link>
                   <Link href="/system/retrieve-data">
                     <Button className="w-full bg-gray-600 hover:bg-gray-700">Retrieve Certificate Data</Button>
+                  </Link>
+                  <Link href="/system/student-records">
+                    <Button className="w-full bg-gray-600 hover:bg-gray-700">Student Records</Button>
                   </Link>
                 </div>
               </div>

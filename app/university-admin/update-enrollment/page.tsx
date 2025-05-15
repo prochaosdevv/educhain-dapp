@@ -14,6 +14,7 @@ import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { CustomConnectButton } from "@/components/custom-connect-button"
 import { uploadJSONToPinata } from "@/app/actions/ipfs-actions"
+import { storeEnrollmentInMongoDB } from "@/app/actions/mongodb-actions"
 import { useAccount } from "wagmi"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
@@ -76,26 +77,53 @@ export default function UpdateEnrollmentPage() {
         const result = await uploadJSONToPinata(enrollmentData, `enrollment-${formData.studentId}-${Date.now()}.json`)
 
         if (result.success && result.data) {
-          toast({
-            title: "Enrollment Updated",
-            description: "The student enrollment status has been successfully updated and stored on IPFS via Pinata.",
-          })
+          // Store the enrollment data in MongoDB
+          const mongoData = {
+            studentId: formData.studentId,
+            studentName: formData.studentName,
+            program: formData.program,
+            semester: formData.semester,
+            enrollmentDate: formData.enrollmentDate,
+            expectedGraduation: formData.expectedGraduation,
+            isActive,
+            enrollmentType: formData.enrollmentType,
+            financialStatus: formData.financialStatus,
+            ipfsCid: result.data.cid,
+            ipfsUrl: result.data.url,
+            updatedBy: address || "unknown",
+            updatedAt: new Date().toISOString(),
+            blockchainReference: enrollmentData.blockchainReference,
+            createdAt: new Date(),
+          }
 
-          // Log the IPFS URL for reference
-          console.log("Enrollment data stored at:", result.data.url)
+          const mongoResult = await storeEnrollmentInMongoDB(mongoData)
 
-          // Reset form after successful submission
-          setFormData({
-            studentId: "",
-            studentName: "",
-            program: "",
-            semester: "",
-            enrollmentDate: "",
-            expectedGraduation: "",
-            enrollmentType: "",
-            financialStatus: "",
-          })
-          setIsActive(true)
+          if (mongoResult.success) {
+            toast({
+              title: "Enrollment Updated",
+              description:
+                "The student enrollment status has been successfully updated, stored on IPFS, and recorded in the database.",
+            })
+
+            // Log the IPFS URL for reference
+            console.log("Enrollment data stored at:", result.data.url)
+            console.log("MongoDB ID:", mongoResult.id)
+
+            // Reset form after successful submission
+            setFormData({
+              studentId: "",
+              studentName: "",
+              program: "",
+              semester: "",
+              enrollmentDate: "",
+              expectedGraduation: "",
+              enrollmentType: "",
+              financialStatus: "",
+            })
+            setIsActive(true)
+          } else {
+            throw new Error(mongoResult.message)
+          }
         } else {
           throw new Error(result.message)
         }
