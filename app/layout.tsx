@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Blockchain Certificate Management",
   description: "A blockchain-based certificate management system",
-    generator: 'v0.dev'
+  generator: "hmt",
 }
 
 export default function RootLayout({
