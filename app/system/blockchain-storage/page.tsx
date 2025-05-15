@@ -13,24 +13,26 @@ import { UNIVERSITY_CONTRACT_ADDRESS, UNIVERSITY_CONTRACT_ABI } from "@/lib/cont
 
 type CertificateStatus = "pending" | "processing" | "stored" | "failed"
 
-interface Certificate {
+interface EnrollmentItem {
   id: string
-  name: string
+  studentId: string
+  studentName: string
+  program: string
   university: string
   date: string
   status: CertificateStatus
   txHash?: string
-  ipfsCid?: string
-  studentId?: string
+  ipfsCid: string
   icNumber?: string
-  enrollmentHash?: string
-  studentIdNumber?: string
+  enrollmentType: string
+  semester: string
+  isActive: boolean
 }
 
 export default function BlockchainStoragePage() {
   const { toast } = useToast()
   const { address, isConnected } = useAccount()
-  const [certificates, setCertificates] = useState<Certificate[]>([])
+  const [enrollments, setEnrollments] = useState<EnrollmentItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -59,89 +61,99 @@ export default function BlockchainStoragePage() {
     if (isSuccess) {
       toast({
         title: "Transaction Successful",
-        description: "Certificate has been stored on the blockchain",
+        description: "Enrollment data has been stored on the blockchain",
       })
     }
     if (isError && error) {
       toast({
         title: "Transaction Failed",
-        description: error.message || "Failed to store certificate on blockchain",
+        description: error.message || "Failed to store enrollment data on blockchain",
         variant: "destructive",
       })
     }
   }, [isSuccess, isError, error, toast])
 
-  // Fetch certificates and enrollments from MongoDB
+  // Fetch enrollments from MongoDB
   useEffect(() => {
-    // Fetch students from MongoDB
     const fetchData = async () => {
       try {
         setIsLoading(true)
 
-        // Fetch students from MongoDB
-        const response = await fetch("/api/students")
+        // Fetch all enrollments
+        const response = await fetch("/api/enrollments")
         const result = await response.json()
 
         if (response.ok && result.success && result.data && result.data.length > 0) {
-          const formattedStudents = result.data.map((student: any) => ({
-            id: student.studentId,
-            name: student.name,
+          const formattedEnrollments = result.data.map((enrollment: any) => ({
+            id: enrollment._id || enrollment.ipfsCid,
+            studentId: enrollment.studentId,
+            studentName: enrollment.studentName,
+            program: enrollment.program,
             university: "University of Technology",
-            date: new Date(student.updatedAt).toLocaleDateString(),
-            status: student.blockchainStatus || "pending",
-            txHash: student.txHash,
-            ipfsCid: student.certificateHash,
-            studentId: student.studentId,
-            studentIdNumber: student.studentId.split("-").pop() || "0",
-            icNumber: student.icNumber || "",
-            enrollmentHash: student.enrollmentHash || "",
+            date: new Date(enrollment.updatedAt).toLocaleDateString(),
+            status: enrollment.blockchainStatus || "pending",
+            txHash: enrollment.blockchainReference,
+            ipfsCid: enrollment.ipfsCid,
+            icNumber: enrollment.icNumber || "",
+            enrollmentType: enrollment.enrollmentType,
+            semester: enrollment.semester,
+            isActive: enrollment.isActive,
           }))
 
-          setCertificates(formattedStudents)
+          setEnrollments(formattedEnrollments)
         } else {
-          // If no students found, use mock data
-          setCertificates([
+          // If no enrollments found, use mock data
+          setEnrollments([
             {
-              id: "STU-2023-12345",
-              name: "Ahmad Bin Abdullah",
+              id: "enroll-1",
+              studentId: "STU-2023-12345",
+              studentName: "Ahmad Bin Abdullah",
+              program: "Bachelor of Computer Science",
               university: "University of Technology",
               date: "2023-05-15",
-              status: "stored" as CertificateStatus,
+              status: "stored",
               txHash: "0x7f9e8d7c6b5a4e3d2c1b0a9f8e7d6c5b4a3f2e1d",
-              studentId: "STU-2023-12345",
-              studentIdNumber: "12345",
+              ipfsCid: "QmX7bVbVH5mKgbFJ9xJ4...",
               icNumber: "901234-56-7890",
-              enrollmentHash: "QmX7bVbVH5mKgbFJ9xJ4...",
+              enrollmentType: "fullTime",
+              semester: "3",
+              isActive: true,
             },
             {
-              id: "STU-2023-12346",
-              name: "Siti Binti Mohamed",
-              university: "National University",
-              date: "2023-05-15",
-              status: "pending" as CertificateStatus,
+              id: "enroll-2",
               studentId: "STU-2023-12346",
-              studentIdNumber: "12346",
+              studentName: "Siti Binti Mohamed",
+              program: "Bachelor of Business Administration",
+              university: "University of Technology",
+              date: "2023-05-15",
+              status: "pending",
+              ipfsCid: "QmX7bVbVH5mKgbFJ9xJ5...",
               icNumber: "901234-56-7891",
-              enrollmentHash: "QmX7bVbVH5mKgbFJ9xJ5...",
+              enrollmentType: "partTime",
+              semester: "2",
+              isActive: true,
             },
             {
-              id: "STU-2023-12347",
-              name: "John Smith",
-              university: "International College",
-              date: "2023-05-14",
-              status: "failed" as CertificateStatus,
+              id: "enroll-3",
               studentId: "STU-2023-12347",
-              studentIdNumber: "12347",
+              studentName: "John Smith",
+              program: "Bachelor of Engineering",
+              university: "University of Technology",
+              date: "2023-05-14",
+              status: "failed",
+              ipfsCid: "QmX7bVbVH5mKgbFJ9xJ6...",
               icNumber: "901234-56-7892",
-              enrollmentHash: "QmX7bVbVH5mKgbFJ9xJ6...",
+              enrollmentType: "fullTime",
+              semester: "4",
+              isActive: false,
             },
           ])
         }
       } catch (error) {
-        console.error("Error fetching data:", error)
+        console.error("Error fetching enrollments:", error)
         toast({
           title: "Error",
-          description: "Failed to fetch students",
+          description: "Failed to fetch enrollments",
           variant: "destructive",
         })
       } finally {
@@ -152,39 +164,39 @@ export default function BlockchainStoragePage() {
     fetchData()
   }, [toast])
 
-  const processNextCertificate = async () => {
+  const processNextEnrollment = async () => {
     if (!isConnected) {
       toast({
         title: "Wallet Not Connected",
-        description: "Please connect your wallet to process certificates",
+        description: "Please connect your wallet to process enrollments",
         variant: "destructive",
       })
       return
     }
 
-    const pendingCert = certificates.find((cert) => cert.status === "pending")
-    if (!pendingCert || !pendingCert.ipfsCid) {
+    const pendingEnrollment = enrollments.find((enroll) => enroll.status === "pending")
+    if (!pendingEnrollment || !pendingEnrollment.ipfsCid) {
       toast({
-        title: "No Pending Certificates",
-        description: "There are no pending certificates to process",
+        title: "No Pending Enrollments",
+        description: "There are no pending enrollments to process",
       })
       return
     }
 
     // Check if we have all required data
-    if (!pendingCert.studentIdNumber || !pendingCert.enrollmentHash || !pendingCert.ipfsCid) {
+    if (!pendingEnrollment.studentId || !pendingEnrollment.ipfsCid) {
       toast({
         title: "Missing Data",
-        description: "Certificate is missing required data for blockchain storage",
+        description: "Enrollment is missing required data for blockchain storage",
         variant: "destructive",
       })
       return
     }
 
-    // Update certificate status to processing
-    setCertificates((prev) => {
+    // Update enrollment status to processing
+    setEnrollments((prev) => {
       const updated = [...prev]
-      const index = updated.findIndex((cert) => cert.ipfsCid === pendingCert.ipfsCid)
+      const index = updated.findIndex((enroll) => enroll.ipfsCid === pendingEnrollment.ipfsCid)
       if (index !== -1) {
         updated[index] = {
           ...updated[index],
@@ -209,17 +221,32 @@ export default function BlockchainStoragePage() {
     }, 150)
 
     try {
+      // Extract numeric part from studentId (assuming format like "STU-2023-12345")
+      const studentIdNumber = pendingEnrollment.studentId.split("-").pop() || "0"
+
       // Call the smart contract function
       writeContract({
         address: UNIVERSITY_CONTRACT_ADDRESS,
         abi: UNIVERSITY_CONTRACT_ABI,
         functionName: "storeStudentData",
         args: [
-          BigInt(pendingCert.studentIdNumber), // Convert to BigInt for uint256
-          pendingCert.enrollmentHash || "",
-          pendingCert.ipfsCid,
-          pendingCert.icNumber || "",
+          BigInt(studentIdNumber), // Convert to BigInt for uint256
+          pendingEnrollment.ipfsCid, // Use enrollment IPFS hash
+          "", // No certificate hash for now
+          pendingEnrollment.icNumber || "",
         ],
+      })
+
+      // Update the enrollment in the database
+      fetch("/api/blockchain/process-enrollment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          enrollmentId: pendingEnrollment.ipfsCid,
+          txHash: "0x" + Math.random().toString(16).substring(2, 42), // Mock tx hash
+        }),
       })
 
       // Wait for transaction to be mined
@@ -227,10 +254,10 @@ export default function BlockchainStoragePage() {
       // For now, we'll simulate this with a timeout
       setTimeout(() => {
         if (!isError) {
-          // Update certificate status to stored
-          setCertificates((prev) => {
+          // Update enrollment status to stored
+          setEnrollments((prev) => {
             const updated = [...prev]
-            const index = updated.findIndex((cert) => cert.ipfsCid === pendingCert.ipfsCid)
+            const index = updated.findIndex((enroll) => enroll.ipfsCid === pendingEnrollment.ipfsCid)
             if (index !== -1) {
               updated[index] = {
                 ...updated[index],
@@ -241,10 +268,10 @@ export default function BlockchainStoragePage() {
             return updated
           })
         } else {
-          // Update certificate status to failed
-          setCertificates((prev) => {
+          // Update enrollment status to failed
+          setEnrollments((prev) => {
             const updated = [...prev]
-            const index = updated.findIndex((cert) => cert.ipfsCid === pendingCert.ipfsCid)
+            const index = updated.findIndex((enroll) => enroll.ipfsCid === pendingEnrollment.ipfsCid)
             if (index !== -1) {
               updated[index] = {
                 ...updated[index],
@@ -260,17 +287,17 @@ export default function BlockchainStoragePage() {
         setIsProcessing(false)
       }, 5000)
     } catch (error) {
-      console.error("Error processing certificate:", error)
+      console.error("Error processing enrollment:", error)
       toast({
         title: "Error",
-        description: "Failed to process certificate",
+        description: "Failed to process enrollment",
         variant: "destructive",
       })
 
-      // Update certificate status to failed
-      setCertificates((prev) => {
+      // Update enrollment status to failed
+      setEnrollments((prev) => {
         const updated = [...prev]
-        const index = updated.findIndex((cert) => cert.ipfsCid === pendingCert.ipfsCid)
+        const index = updated.findIndex((enroll) => enroll.ipfsCid === pendingEnrollment.ipfsCid)
         if (index !== -1) {
           updated[index] = {
             ...updated[index],
@@ -286,13 +313,13 @@ export default function BlockchainStoragePage() {
     }
   }
 
-  const handleRetry = async (cert: Certificate) => {
-    if (!cert.ipfsCid) return
+  const handleRetry = async (enrollment: EnrollmentItem) => {
+    if (!enrollment.ipfsCid) return
 
-    // Update the certificate status to pending
-    setCertificates((prev) => {
+    // Update the enrollment status to pending
+    setEnrollments((prev) => {
       const updated = [...prev]
-      const index = updated.findIndex((c) => c.ipfsCid === cert.ipfsCid)
+      const index = updated.findIndex((e) => e.ipfsCid === enrollment.ipfsCid)
       if (index !== -1) {
         updated[index] = {
           ...updated[index],
@@ -303,8 +330,8 @@ export default function BlockchainStoragePage() {
     })
 
     toast({
-      title: "Certificate Queued",
-      description: "Certificate has been queued for processing",
+      title: "Enrollment Queued",
+      description: "Enrollment has been queued for processing",
     })
   }
 
@@ -325,6 +352,25 @@ export default function BlockchainStoragePage() {
     }
   }
 
+  const getEnrollmentTypeBadge = (type: string, isActive: boolean) => {
+    if (!isActive) {
+      return <Badge className="bg-red-100 text-red-800">Inactive</Badge>
+    }
+
+    switch (type) {
+      case "fullTime":
+        return <Badge className="bg-green-100 text-green-800">Full-time</Badge>
+      case "partTime":
+        return <Badge className="bg-amber-100 text-amber-800">Part-time</Badge>
+      case "distance":
+        return <Badge className="bg-blue-100 text-blue-800">Distance</Badge>
+      case "exchange":
+        return <Badge className="bg-purple-100 text-purple-800">Exchange</Badge>
+      default:
+        return <Badge className="bg-gray-100 text-gray-800">{type}</Badge>
+    }
+  }
+
   return (
     <div className="container mx-auto max-w-6xl px-4 py-8">
       <div className="mb-6 flex items-center gap-2">
@@ -336,15 +382,15 @@ export default function BlockchainStoragePage() {
 
       <div className="mb-6 flex items-center gap-3">
         <Database className="h-8 w-8 text-gray-700" />
-        <h1 className="text-3xl font-bold">Store Certificate on Blockchain</h1>
+        <h1 className="text-3xl font-bold">Store Enrollment Data on Blockchain</h1>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle>Certificate Storage Queue</CardTitle>
-              <CardDescription>Certificates waiting to be stored on the blockchain</CardDescription>
+              <CardTitle>Enrollment Storage Queue</CardTitle>
+              <CardDescription>Enrollment records waiting to be stored on the blockchain</CardDescription>
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -353,36 +399,39 @@ export default function BlockchainStoragePage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {certificates.map((cert) => (
+                  {enrollments.map((enrollment) => (
                     <div
-                      key={cert.id}
+                      key={enrollment.id}
                       className={`flex flex-wrap items-center justify-between gap-4 rounded-md border p-4 ${
-                        cert.status === "processing" ? "border-blue-200 bg-blue-50" : ""
+                        enrollment.status === "processing" ? "border-blue-200 bg-blue-50" : ""
                       }`}
                     >
                       <div className="flex items-center gap-3">
                         <FileText className="h-8 w-8 text-gray-400" />
                         <div>
-                          <h3 className="font-medium">{cert.name}</h3>
-                          <p className="text-sm text-gray-500">
-                            {cert.studentId || cert.id} • {cert.university}
-                          </p>
-                          {cert.icNumber && <p className="text-xs text-gray-500">IC: {cert.icNumber}</p>}
+                          <h3 className="font-medium">{enrollment.studentName}</h3>
+                          <div className="flex flex-wrap gap-2 items-center">
+                            <p className="text-sm text-gray-500">
+                              {enrollment.studentId} • Semester {enrollment.semester}
+                            </p>
+                            {getEnrollmentTypeBadge(enrollment.enrollmentType, enrollment.isActive)}
+                          </div>
+                          {enrollment.icNumber && <p className="text-xs text-gray-500">IC: {enrollment.icNumber}</p>}
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        {getStatusBadge(cert.status)}
-                        {cert.status === "stored" && (
+                        {getStatusBadge(enrollment.status)}
+                        {enrollment.status === "stored" && (
                           <div className="hidden text-xs text-gray-500 sm:block">
-                            TX: {cert.txHash?.substring(0, 10)}...
+                            TX: {enrollment.txHash?.substring(0, 10)}...
                           </div>
                         )}
-                        {cert.status === "failed" && (
+                        {enrollment.status === "failed" && (
                           <Button
                             size="sm"
                             variant="outline"
                             className="h-7 gap-1 text-xs"
-                            onClick={() => handleRetry(cert)}
+                            onClick={() => handleRetry(enrollment)}
                           >
                             <RefreshCw className="h-3 w-3" /> Retry
                           </Button>
@@ -395,16 +444,16 @@ export default function BlockchainStoragePage() {
             </CardContent>
             <CardFooter className="flex justify-between border-t bg-gray-50 px-6 py-4">
               <div className="text-sm text-gray-500">
-                {certificates.filter((c) => c.status === "pending").length} pending •
-                {certificates.filter((c) => c.status === "stored").length} stored
+                {enrollments.filter((e) => e.status === "pending").length} pending •
+                {enrollments.filter((e) => e.status === "stored").length} stored
               </div>
               <Button
-                onClick={processNextCertificate}
+                onClick={processNextEnrollment}
                 disabled={
-                  isProcessing || isWritePending || !certificates.some((c) => c.status === "pending") || !isConnected
+                  isProcessing || isWritePending || !enrollments.some((e) => e.status === "pending") || !isConnected
                 }
               >
-                {isProcessing || isWritePending ? "Processing..." : "Process Next Certificate"}
+                {isProcessing || isWritePending ? "Processing..." : "Process Next Enrollment"}
               </Button>
             </CardFooter>
           </Card>
@@ -421,11 +470,11 @@ export default function BlockchainStoragePage() {
                 {(isProcessing || isWritePending) && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Processing Certificate</span>
+                      <span className="text-sm font-medium">Processing Enrollment</span>
                       <span className="text-sm text-gray-500">{progress}%</span>
                     </div>
                     <Progress value={progress} className="h-2" />
-                    <p className="text-xs text-gray-500">Hashing and storing certificate data on the blockchain...</p>
+                    <p className="text-xs text-gray-500">Hashing and storing enrollment data on the blockchain...</p>
                   </div>
                 )}
 
@@ -455,13 +504,13 @@ export default function BlockchainStoragePage() {
                             <span className="font-medium">{studentCount}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span>Total Certificates:</span>
-                            <span className="font-medium">{certificates.length}</span>
+                            <span>Total Enrollments:</span>
+                            <span className="font-medium">{enrollments.length}</span>
                           </div>
                           <div className="flex justify-between">
                             <span>Stored Today:</span>
                             <span className="font-medium">
-                              {certificates.filter((c) => c.status === "stored").length}
+                              {enrollments.filter((e) => e.status === "stored").length}
                             </span>
                           </div>
                           <div className="flex justify-between">
