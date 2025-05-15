@@ -114,10 +114,9 @@ export default function RetrieveDataPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           <Tabs defaultValue="search">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="search">Search</TabsTrigger>
               <TabsTrigger value="transaction">Transaction Hash</TabsTrigger>
-              <TabsTrigger value="advanced">Advanced Query</TabsTrigger>
             </TabsList>
             <TabsContent value="search" className="space-y-4 pt-4">
               <div className="space-y-2">
@@ -149,36 +148,6 @@ export default function RetrieveDataPage() {
                 <p className="text-xs text-gray-500">
                   Enter the exact blockchain transaction hash to retrieve certificate data
                 </p>
-              </div>
-            </TabsContent>
-            <TabsContent value="advanced" className="space-y-4 pt-4">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="university">University</Label>
-                  <Input id="university" placeholder="Enter university name" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="dateRange">Date Range</Label>
-                  <div className="flex items-center gap-2">
-                    <Input id="dateFrom" type="date" className="w-full" />
-                    <span>to</span>
-                    <Input id="dateTo" type="date" className="w-full" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="certificateType">Certificate Type</Label>
-                  <Input id="certificateType" placeholder="Degree, Diploma, etc." />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="program">Program/Degree</Label>
-                  <Input id="program" placeholder="e.g. Computer Science" />
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <Button>
-                  Advanced Search
-                  <Search className="ml-2 h-4 w-4" />
-                </Button>
               </div>
             </TabsContent>
           </Tabs>

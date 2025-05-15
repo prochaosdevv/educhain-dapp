@@ -5,42 +5,91 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ArrowLeft, FileCheck, CheckCircle, XCircle, AlertCircle } from "lucide-react"
+import { ArrowLeft, FileCheck, CheckCircle, XCircle, AlertCircle, Loader2, Code } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
+import { CustomConnectButton } from "@/components/custom-connect-button"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+
+interface StudentData {
+  studentId: string
+  studentName: string
+  institution: string
+  program: string
+  currentSemester: string
+  enrollmentStatus: string
+  financialStatus: string
+  lastVerified: string
+  ipfsCid?: string
+  blockchainReference?: string | null
+}
 
 export default function VerifyEnrollmentPage() {
   const [studentId, setStudentId] = useState("")
+  const [icNumber, setIcNumber] = useState("")
   const [isVerifying, setIsVerifying] = useState(false)
   const [verificationResult, setVerificationResult] = useState<"active" | "inactive" | "partial" | null>(null)
+  const [studentData, setStudentData] = useState<StudentData | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     if (!studentId) return
 
     setIsVerifying(true)
-    // Simulate API call
-    setTimeout(() => {
+    setError(null)
+
+    try {
+      const response = await fetch("/api/ptptn/verify-loan", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ studentId, icNumber }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        setVerificationResult(data.verificationResult)
+        setStudentData(data.studentData)
+      } else {
+        setError(data.message || "Failed to verify enrollment status")
+        setVerificationResult(data.verificationResult || null)
+        setStudentData(null)
+      }
+    } catch (err) {
+      console.error("Error verifying enrollment:", err)
+      setError("An error occurred while verifying enrollment status. Please try again.")
+      setVerificationResult(null)
+      setStudentData(null)
+    } finally {
       setIsVerifying(false)
-      // For demo purposes, we'll randomly select a status
-      const statuses = ["active", "inactive", "partial"] as const
-      const randomStatus = statuses[Math.floor(Math.random() * statuses.length)]
-      setVerificationResult(randomStatus)
-    }, 2000)
+    }
   }
 
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8">
-      <div className="mb-6 flex items-center gap-2">
-        <Link href="/" className="flex items-center text-amber-600 hover:text-amber-800">
-          <ArrowLeft className="mr-1 h-4 w-4" />
-          Back to Home
-        </Link>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2">
+          <Link href="/" className="flex items-center text-amber-600 hover:text-amber-800">
+            <ArrowLeft className="mr-1 h-4 w-4" />
+            Back to Home
+          </Link>
+          <div className="flex items-center gap-3">
+            <FileCheck className="h-8 w-8 text-amber-700" />
+            <h1 className="text-3xl font-bold">Verify Enrollment for Loan Disbursement</h1>
+          </div>
+        </div>
+        <CustomConnectButton />
       </div>
 
-      <div className="mb-6 flex items-center gap-3">
-        <FileCheck className="h-8 w-8 text-amber-700" />
-        <h1 className="text-3xl font-bold">Verify Enrollment for Loan Disbursement</h1>
-      </div>
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       <Card>
         <CardHeader>
@@ -61,7 +110,12 @@ export default function VerifyEnrollmentPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="icNumber">IC Number</Label>
-                <Input id="icNumber" placeholder="Enter IC number" />
+                <Input
+                  id="icNumber"
+                  placeholder="Enter IC number"
+                  value={icNumber}
+                  onChange={(e) => setIcNumber(e.target.value)}
+                />
               </div>
             </div>
 
@@ -71,12 +125,19 @@ export default function VerifyEnrollmentPage() {
                 disabled={isVerifying || !studentId}
                 className="bg-amber-600 hover:bg-amber-700"
               >
-                {isVerifying ? "Verifying..." : "Verify Enrollment"}
+                {isVerifying ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  "Verify Enrollment"
+                )}
               </Button>
             </div>
           </div>
 
-          {verificationResult && (
+          {verificationResult && studentData && (
             <div
               className={`mt-6 rounded-md p-4 ${
                 verificationResult === "active"
@@ -131,54 +192,46 @@ export default function VerifyEnrollmentPage() {
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div>
                         <p className="text-xs text-gray-500">Student Name</p>
-                        <p className="font-medium">Ahmad Bin Abdullah</p>
+                        <p className="font-medium">{studentData.studentName}</p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Student ID</p>
-                        <p className="font-medium">STU-2019-12345</p>
+                        <p className="font-medium">{studentData.studentId}</p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Institution</p>
-                        <p className="font-medium">University of Technology</p>
+                        <p className="font-medium">{studentData.institution}</p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Program</p>
-                        <p className="font-medium">Bachelor of Computer Science</p>
+                        <p className="font-medium">{studentData.program}</p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Current Semester</p>
-                        <p className="font-medium">Semester 5</p>
+                        <p className="font-medium">Semester {studentData.currentSemester}</p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Enrollment Status</p>
-                        <p className="font-medium">
-                          {verificationResult === "active"
-                            ? "Full-time"
-                            : verificationResult === "inactive"
-                              ? "Not Enrolled"
-                              : "Part-time"}
-                        </p>
+                        <p className="font-medium">{studentData.enrollmentStatus}</p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Financial Status</p>
-                        <p className="font-medium">
-                          {verificationResult === "active"
-                            ? "Fees Paid"
-                            : verificationResult === "inactive"
-                              ? "N/A"
-                              : "Partially Paid"}
-                        </p>
+                        <p className="font-medium">{studentData.financialStatus}</p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Last Verified</p>
-                        <p className="font-medium">{new Date().toLocaleDateString()}</p>
+                        <p className="font-medium">{new Date(studentData.lastVerified).toLocaleDateString()}</p>
                       </div>
                     </div>
                     <div className="mt-3 flex justify-end gap-2">
                       <Button size="sm" variant="outline">
                         Download Report
                       </Button>
-                      <Button size="sm" className="bg-amber-600 hover:bg-amber-700">
+                      <Button
+                        size="sm"
+                        className="bg-amber-600 hover:bg-amber-700"
+                        disabled={verificationResult === "inactive"}
+                      >
                         Process Loan
                       </Button>
                     </div>
@@ -196,6 +249,12 @@ export default function VerifyEnrollmentPage() {
             <li>Satisfactory academic progress must be maintained</li>
             <li>Verification must be completed within 30 days of disbursement</li>
           </ul>
+          <div className="mt-4 flex items-center">
+            <Code className="mr-2 h-4 w-4 text-amber-600" />
+            <Link href="/api/docs/ptptn" className="text-sm text-amber-600 hover:underline">
+              API Documentation for Developers
+            </Link>
+          </div>
         </CardFooter>
       </Card>
     </div>
