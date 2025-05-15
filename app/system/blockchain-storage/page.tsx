@@ -8,7 +8,6 @@ import Link from "next/link"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
-import { getCertificatesByStudentId, getEnrollmentsByStudentId } from "@/app/actions/mongodb-actions"
 import { useAccount, useWriteContract, useReadContract } from "wagmi"
 import { UNIVERSITY_CONTRACT_ADDRESS, UNIVERSITY_CONTRACT_ABI } from "@/lib/contracts"
 
@@ -25,6 +24,7 @@ interface Certificate {
   studentId?: string
   icNumber?: string
   enrollmentHash?: string
+  studentIdNumber?: string
 }
 
 export default function BlockchainStoragePage() {
@@ -73,50 +73,40 @@ export default function BlockchainStoragePage() {
 
   // Fetch certificates and enrollments from MongoDB
   useEffect(() => {
+    // Fetch students from MongoDB
     const fetchData = async () => {
       try {
         setIsLoading(true)
 
-        // Fetch certificates
-        const certResult = await getCertificatesByStudentId("")
+        // Fetch students from MongoDB
+        const response = await fetch("/api/students")
+        const result = await response.json()
 
-        // Fetch all enrollments to get IC numbers
-        const enrollResult = await getEnrollmentsByStudentId("")
+        if (response.ok && result.success && result.data && result.data.length > 0) {
+          const formattedStudents = result.data.map((student: any) => ({
+            id: student.studentId,
+            name: student.name,
+            university: "University of Technology",
+            date: new Date(student.updatedAt).toLocaleDateString(),
+            status: student.blockchainStatus || "pending",
+            txHash: student.txHash,
+            ipfsCid: student.certificateHash,
+            studentId: student.studentId,
+            studentIdNumber: student.studentId.split("-").pop() || "0",
+            icNumber: student.icNumber || "",
+            enrollmentHash: student.enrollmentHash || "",
+          }))
 
-        if (certResult.success && certResult.data && certResult.data.length > 0) {
-          const formattedCerts = certResult.data.map((cert: any) => {
-            // Find matching enrollment to get IC number
-            const enrollment =
-              enrollResult.success && enrollResult.data
-                ? enrollResult.data.find((e: any) => e.studentId === cert.studentId)
-                : null
-
-            return {
-              id: cert.ipfsCid.substring(0, 10) + "...",
-              name: cert.studentName,
-              university: "University of Technology",
-              date: new Date(cert.issueDate).toLocaleDateString(),
-              status: cert.blockchainReference ? "stored" : "pending",
-              txHash: cert.blockchainReference,
-              ipfsCid: cert.ipfsCid,
-              studentId: cert.studentId,
-              // Extract numeric part from studentId (assuming format like "STU-2023-12345")
-              studentIdNumber: cert.studentId.split("-").pop() || "0",
-              icNumber: enrollment?.icNumber || "",
-              enrollmentHash: enrollment?.ipfsCid || "",
-            }
-          })
-
-          setCertificates(formattedCerts)
+          setCertificates(formattedStudents)
         } else {
-          // If no certificates found, use mock data
+          // If no students found, use mock data
           setCertificates([
             {
-              id: "CERT-2023-78945",
+              id: "STU-2023-12345",
               name: "Ahmad Bin Abdullah",
               university: "University of Technology",
               date: "2023-05-15",
-              status: "stored",
+              status: "stored" as CertificateStatus,
               txHash: "0x7f9e8d7c6b5a4e3d2c1b0a9f8e7d6c5b4a3f2e1d",
               studentId: "STU-2023-12345",
               studentIdNumber: "12345",
@@ -124,22 +114,22 @@ export default function BlockchainStoragePage() {
               enrollmentHash: "QmX7bVbVH5mKgbFJ9xJ4...",
             },
             {
-              id: "CERT-2023-78946",
+              id: "STU-2023-12346",
               name: "Siti Binti Mohamed",
               university: "National University",
               date: "2023-05-15",
-              status: "pending",
+              status: "pending" as CertificateStatus,
               studentId: "STU-2023-12346",
               studentIdNumber: "12346",
               icNumber: "901234-56-7891",
               enrollmentHash: "QmX7bVbVH5mKgbFJ9xJ5...",
             },
             {
-              id: "CERT-2023-78947",
+              id: "STU-2023-12347",
               name: "John Smith",
               university: "International College",
               date: "2023-05-14",
-              status: "failed",
+              status: "failed" as CertificateStatus,
               studentId: "STU-2023-12347",
               studentIdNumber: "12347",
               icNumber: "901234-56-7892",
@@ -151,7 +141,7 @@ export default function BlockchainStoragePage() {
         console.error("Error fetching data:", error)
         toast({
           title: "Error",
-          description: "Failed to fetch certificates",
+          description: "Failed to fetch students",
           variant: "destructive",
         })
       } finally {

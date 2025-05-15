@@ -2,23 +2,12 @@
 
 import { useState, useTransition } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  ArrowLeft,
-  Download,
-  GraduationCap,
-  Share2,
-  QrCode,
-  Loader2,
-  AlertCircle,
-  FileText,
-  ExternalLink,
-} from "lucide-react"
+import { ArrowLeft, GraduationCap, Loader2, AlertCircle, FileText, ExternalLink } from "lucide-react"
 import Link from "next/link"
-import Image from "next/image"
 import { getCertificatesByStudentId, getCertificateByIpfsCid } from "@/app/actions/mongodb-actions"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { SuccessMessage } from "@/components/success-message"
@@ -151,85 +140,6 @@ export default function ViewCertificatePage() {
         </Card>
       ) : (
         <div className="space-y-6">
-          <Card className="overflow-hidden border-2 border-green-200">
-            <div className="p-4 border-b">
-              <div className="text-sm text-gray-500 text-right">
-                Certificate ID: {selectedCertificate.ipfsCid.substring(0, 10)}...
-              </div>
-            </div>
-            <CardContent className="p-6">
-              <div className="mb-6 flex flex-col items-center justify-center">
-                <div className="mb-4 h-24 w-24">
-                  <Image
-                    src="/generic-university-logo.png"
-                    alt="University Logo"
-                    width={96}
-                    height={96}
-                    className="h-full w-full object-contain"
-                  />
-                </div>
-                <h2 className="text-center text-2xl font-bold">University of Technology</h2>
-                <p className="text-center text-gray-500">Certificate of Completion</p>
-              </div>
-
-              <div className="mb-8 text-center">
-                <h3 className="text-xl font-medium">This certifies that</h3>
-                <p className="my-2 text-3xl font-bold">{selectedCertificate.studentName}</p>
-                <p className="text-gray-600">has successfully completed the requirements for the degree of</p>
-                <p className="my-2 text-2xl font-semibold">{selectedCertificate.program}</p>
-                <p className="text-gray-600">
-                  {selectedCertificate.achievements && `with ${selectedCertificate.achievements}`}
-                </p>
-                <p className="mt-4 text-gray-600">
-                  Awarded on {new Date(selectedCertificate.issueDate).toLocaleDateString()}
-                </p>
-              </div>
-
-              <div className="flex flex-wrap justify-center gap-4">
-                <div className="text-center">
-                  <Image
-                    src="/qr-code.png"
-                    alt="Verification QR Code"
-                    width={100}
-                    height={100}
-                    className="mx-auto mb-2"
-                  />
-                  <p className="text-xs text-gray-500">Scan to verify</p>
-                </div>
-                <div className="text-center">
-                  <Image
-                    src="/handwritten-signature.png"
-                    alt="Digital Signature"
-                    width={100}
-                    height={100}
-                    className="mx-auto mb-2"
-                  />
-                  <p className="text-xs text-gray-500">Digital Signature</p>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="flex justify-center gap-4 border-t bg-gray-50 p-4">
-              {selectedCertificate.fileUrl && (
-                <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={handleViewPDF}>
-                  <FileText className="h-4 w-4" />
-                  View PDF
-                </Button>
-              )}
-              <Button variant="outline" size="sm" className="flex items-center gap-1">
-                <Download className="h-4 w-4" />
-                Download
-              </Button>
-              <Button variant="outline" size="sm" className="flex items-center gap-1">
-                <Share2 className="h-4 w-4" />
-                Share
-              </Button>
-              <Button variant="outline" size="sm" className="flex items-center gap-1">
-                <QrCode className="h-4 w-4" />
-                QR Code
-              </Button>
-            </CardFooter>
-          </Card>
-
           <Card>
             <CardHeader>
               <CardTitle>Certificate Details</CardTitle>

@@ -52,3 +52,18 @@ export interface StudentLoan {
   approvedAt?: Date
   createdAt: Date
 }
+
+// Add Student model to the existing models.ts file
+export interface Student {
+  id: string
+  studentId: string
+  name: string
+  program: string
+  icNumber: string
+  enrollmentHash?: string
+  certificateHash?: string
+  blockchainStatus?: "pending" | "processing" | "stored" | "failed"
+  txHash?: string
+  createdAt: Date
+  updatedAt: Date
+}
