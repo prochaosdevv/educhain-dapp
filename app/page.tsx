@@ -5,16 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import Link from "next/link"
 import { Shield, GraduationCap, Briefcase, FileCheck, Database, Wallet } from "lucide-react"
 import { CustomConnectButton } from "@/components/custom-connect-button"
-import { useState } from "react"
+import { useAccount } from "wagmi"
 
 export default function Home() {
-  // For preview environment, we'll use a simple state to track connection status
-  const [isConnected, setIsConnected] = useState(false)
-
-  // Function to handle wallet connection state changes
-  const handleConnect = () => {
-    setIsConnected(true)
-  }
+  const { isConnected } = useAccount()
 
   if (!isConnected) {
     return (
@@ -50,9 +44,7 @@ export default function Home() {
                     </p>
                   </div>
                   <div className="flex justify-center">
-                    <Button onClick={handleConnect} className="bg-blue-600 hover:bg-blue-700">
-                      Connect Wallet (Preview Mode)
-                    </Button>
+                    <CustomConnectButton />
                   </div>
                 </div>
               </CardContent>

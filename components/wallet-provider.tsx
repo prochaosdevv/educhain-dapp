@@ -1,7 +1,7 @@
 "use client"
 
 import { type ReactNode, useEffect, useState } from "react"
-import { RainbowKitProvider } from "@rainbow-me/rainbowkit"
+import { RainbowKitProvider, getDefaultWallets, lightTheme, darkTheme } from "@rainbow-me/rainbowkit"
 import { WagmiProvider, createConfig, http } from "wagmi"
 import { mainnet, sepolia } from "wagmi/chains"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
@@ -10,13 +10,21 @@ import { useTheme } from "next-themes"
 // Create a client
 const queryClient = new QueryClient()
 
-// Create a simple config for the preview environment
+// Configure chains & providers
+const { connectors } = getDefaultWallets({
+  appName: "Blockchain Certificate Management",
+  projectId: "YOUR_PROJECT_ID", // Replace with your WalletConnect project ID
+  chains: [mainnet, sepolia],
+})
+
+// Create wagmi config
 const config = createConfig({
   chains: [mainnet, sepolia],
   transports: {
     [mainnet.id]: http(),
     [sepolia.id]: http(),
   },
+  connectors,
 })
 
 export function WalletProvider({ children }: { children: ReactNode }) {
@@ -30,7 +38,26 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <WagmiProvider config={config}>
-        <RainbowKitProvider modalSize="compact">{mounted && children}</RainbowKitProvider>
+        <RainbowKitProvider
+          theme={
+            resolvedTheme === "dark"
+              ? darkTheme({
+                  accentColor: "hsl(var(--primary))",
+                  accentColorForeground: "hsl(var(--primary-foreground))",
+                  borderRadius: "medium",
+                  fontStack: "system",
+                })
+              : lightTheme({
+                  accentColor: "hsl(var(--primary))",
+                  accentColorForeground: "hsl(var(--primary-foreground))",
+                  borderRadius: "medium",
+                  fontStack: "system",
+                })
+          }
+          modalSize="compact"
+        >
+          {mounted && children}
+        </RainbowKitProvider>
       </WagmiProvider>
     </QueryClientProvider>
   )
