@@ -6,10 +6,10 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Download, GraduationCap, Share2, QrCode, CheckCircle2, Loader2, AlertCircle } from "lucide-react"
+import { ArrowLeft, Download, GraduationCap, Share2, QrCode, Loader2, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
-import { getCertificatesByStudentId } from "@/app/actions/mongodb-actions"
+import { getCertificatesByStudentId, getCertificateByIpfsCid } from "@/app/actions/mongodb-actions"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { SuccessMessage } from "@/components/success-message"
 import { CustomConnectButton } from "@/components/custom-connect-button"
@@ -32,17 +32,37 @@ export default function ViewCertificatePage() {
 
     startTransition(async () => {
       try {
-        const result = await getCertificatesByStudentId(studentId)
+        // Check if the input looks like an IPFS hash
+        const isIpfsHash = studentId.startsWith("Qm") || studentId.startsWith("bafy") || studentId.length > 30
 
-        if (result.success && result.data && result.data.length > 0) {
-          setCertificates(result.data)
-          setSelectedCertificate(result.data[0]) // Select the first certificate by default
-          setSuccess({
-            title: "Certificates Found",
-            message: `Found ${result.data.length} certificate(s) for student ID ${studentId}.`,
-          })
+        if (isIpfsHash) {
+          // Try to find certificate by IPFS CID
+          const result = await getCertificateByIpfsCid(studentId)
+
+          if (result.success && result.data) {
+            setCertificates([result.data])
+            setSelectedCertificate(result.data)
+            setSuccess({
+              title: "Certificate Found",
+              message: `Found certificate with IPFS hash: ${studentId.substring(0, 10)}...`,
+            })
+          } else {
+            setError("No certificate found with this IPFS hash. Please check and try again.")
+          }
         } else {
-          setError("No certificates found for this student ID. Please check the ID and try again.")
+          // Original functionality - search by student ID
+          const result = await getCertificatesByStudentId(studentId)
+
+          if (result.success && result.data && result.data.length > 0) {
+            setCertificates(result.data)
+            setSelectedCertificate(result.data[0]) // Select the first certificate by default
+            setSuccess({
+              title: "Certificates Found",
+              message: `Found ${result.data.length} certificate(s) for student ID ${studentId}.`,
+            })
+          } else {
+            setError("No certificates found for this student ID. Please check the ID and try again.")
+          }
         }
       } catch (err) {
         console.error("Error fetching certificates:", err)
@@ -85,7 +105,7 @@ export default function ViewCertificatePage() {
         <Card>
           <CardHeader>
             <CardTitle>Find Your Certificate</CardTitle>
-            <CardDescription>Enter your student ID to view your certificates</CardDescription>
+            <CardDescription>Enter your student ID or certificate IPFS hash to view your certificates</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -94,7 +114,7 @@ export default function ViewCertificatePage() {
                 <div className="flex gap-2">
                   <Input
                     id="studentId"
-                    placeholder="Enter your student ID"
+                    placeholder="Enter your student ID or certificate IPFS hash"
                     value={studentId}
                     onChange={(e) => setStudentId(e.target.value)}
                   />
@@ -116,15 +136,9 @@ export default function ViewCertificatePage() {
       ) : (
         <div className="space-y-6">
           <Card className="overflow-hidden border-2 border-green-200">
-            <div className="bg-green-50 p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  <span className="text-sm font-medium text-green-800">Verified on Blockchain</span>
-                </div>
-                <div className="text-sm text-gray-500">
-                  Certificate ID: {selectedCertificate.ipfsCid.substring(0, 10)}...
-                </div>
+            <div className="p-4 border-b">
+              <div className="text-sm text-gray-500 text-right">
+                Certificate ID: {selectedCertificate.ipfsCid.substring(0, 10)}...
               </div>
             </div>
             <CardContent className="p-6">

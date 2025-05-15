@@ -131,3 +131,72 @@ export async function getEnrollmentsByStudentId(
     }
   }
 }
+
+// Add a new function to get certificates by IPFS CID
+/**
+ * Get certificates by IPFS CID
+ */
+export async function getCertificateByIpfsCid(
+  ipfsCid: string,
+): Promise<{ success: boolean; message: string; data?: any }> {
+  try {
+    const client = await clientPromise
+    const db = client.db("blockchain_certificates")
+    const certificates = db.collection("certificates")
+
+    const result = await certificates.findOne({ ipfsCid })
+
+    if (result) {
+      return {
+        success: true,
+        message: "Certificate found",
+        data: result,
+      }
+    } else {
+      return {
+        success: false,
+        message: "No certificate found with this IPFS CID",
+      }
+    }
+  } catch (error) {
+    console.error("MongoDB error:", error)
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Failed to retrieve certificate from MongoDB",
+    }
+  }
+}
+
+/**
+ * Get enrollment by IPFS CID
+ */
+export async function getEnrollmentByIpfsCid(
+  ipfsCid: string,
+): Promise<{ success: boolean; message: string; data?: any }> {
+  try {
+    const client = await clientPromise
+    const db = client.db("blockchain_certificates")
+    const enrollments = db.collection("enrollments")
+
+    const result = await enrollments.findOne({ ipfsCid })
+
+    if (result) {
+      return {
+        success: true,
+        message: "Enrollment found",
+        data: result,
+      }
+    } else {
+      return {
+        success: false,
+        message: "No enrollment found with this IPFS CID",
+      }
+    }
+  } catch (error) {
+    console.error("MongoDB error:", error)
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Failed to retrieve enrollment from MongoDB",
+    }
+  }
+}

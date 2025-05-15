@@ -7,7 +7,12 @@ import { Input } from "@/components/ui/input"
 import { ArrowLeft, Search, ExternalLink, FileText, GraduationCap, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
-import { getCertificatesByStudentId, getEnrollmentsByStudentId } from "@/app/actions/mongodb-actions"
+import {
+  getCertificatesByStudentId,
+  getEnrollmentsByStudentId,
+  getCertificateByIpfsCid,
+  getEnrollmentByIpfsCid,
+} from "@/app/actions/mongodb-actions"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { CustomConnectButton } from "@/components/custom-connect-button"
@@ -34,33 +39,61 @@ export default function StudentRecordsPage() {
 
     startTransition(async () => {
       try {
-        // Fetch certificates
-        const certResult = await getCertificatesByStudentId(studentId)
-        if (certResult.success && certResult.data) {
-          setCertificates(certResult.data)
-        } else {
-          setCertificates([])
-        }
+        // Check if the input looks like an IPFS hash (typically starts with "Qm" or "bafy" and is longer)
+        const isIpfsHash = studentId.startsWith("Qm") || studentId.startsWith("bafy") || studentId.length > 30
 
-        // Fetch enrollments
-        const enrollResult = await getEnrollmentsByStudentId(studentId)
-        if (enrollResult.success && enrollResult.data) {
-          setEnrollments(enrollResult.data)
-        } else {
-          setEnrollments([])
-        }
+        if (isIpfsHash) {
+          // Try to find certificate by IPFS CID
+          const certResult = await getCertificateByIpfsCid(studentId)
+          if (certResult.success && certResult.data) {
+            setCertificates([certResult.data])
+          }
 
-        setHasSearched(true)
+          // Try to find enrollment by IPFS CID
+          const enrollResult = await getEnrollmentByIpfsCid(studentId)
+          if (enrollResult.success && enrollResult.data) {
+            setEnrollments([enrollResult.data])
+          }
 
-        if ((certResult.data?.length || 0) > 0 || (enrollResult.data?.length || 0) > 0) {
-          setSuccess({
-            title: "Records Retrieved",
-            message: `Found ${certResult.data?.length || 0} certificates and ${
-              enrollResult.data?.length || 0
-            } enrollment records.`,
-          })
+          setHasSearched(true)
+
+          if (certResult.success || enrollResult.success) {
+            setSuccess({
+              title: "Records Retrieved",
+              message: `Found records matching IPFS hash: ${studentId.substring(0, 10)}...`,
+            })
+          } else {
+            setError("No records found for this IPFS hash. Please check and try again.")
+          }
         } else {
-          setError("No records found for this student ID. Please check the ID and try again.")
+          // Fetch certificates by student ID (original functionality)
+          const certResult = await getCertificatesByStudentId(studentId)
+          if (certResult.success && certResult.data) {
+            setCertificates(certResult.data)
+          } else {
+            setCertificates([])
+          }
+
+          // Fetch enrollments by student ID (original functionality)
+          const enrollResult = await getEnrollmentsByStudentId(studentId)
+          if (enrollResult.success && enrollResult.data) {
+            setEnrollments(enrollResult.data)
+          } else {
+            setEnrollments([])
+          }
+
+          setHasSearched(true)
+
+          if ((certResult.data?.length || 0) > 0 || (enrollResult.data?.length || 0) > 0) {
+            setSuccess({
+              title: "Records Retrieved",
+              message: `Found ${certResult.data?.length || 0} certificates and ${
+                enrollResult.data?.length || 0
+              } enrollment records.`,
+            })
+          } else {
+            setError("No records found for this student ID. Please check the ID and try again.")
+          }
         }
       } catch (error) {
         console.error("Error fetching student records:", error)
@@ -100,11 +133,15 @@ export default function StudentRecordsPage() {
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Search Student Records</CardTitle>
-          <CardDescription>Enter a student ID to retrieve their certificates and enrollment records</CardDescription>
+          <CardDescription>Enter a student ID or IPFS hash to retrieve records</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex gap-2">
-            <Input placeholder="Enter Student ID" value={studentId} onChange={(e) => setStudentId(e.target.value)} />
+            <Input
+              placeholder="Enter Student ID or IPFS Hash"
+              value={studentId}
+              onChange={(e) => setStudentId(e.target.value)}
+            />
             <Button onClick={handleSearch} disabled={isPending || !studentId}>
               {isPending ? "Searching..." : "Search"}
               {!isPending && <Search className="ml-2 h-4 w-4" />}
