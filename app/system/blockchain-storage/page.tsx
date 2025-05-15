@@ -1,12 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Database, FileText, CheckCircle, AlertTriangle, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
+import { useToast } from "@/hooks/use-toast"
+import { getCertificatesByStudentId } from "@/app/actions/mongodb-actions"
 
 type CertificateStatus = "pending" | "processing" | "stored" | "failed"
 
@@ -17,81 +19,220 @@ interface Certificate {
   date: string
   status: CertificateStatus
   txHash?: string
+  ipfsCid?: string
 }
 
 export default function BlockchainStoragePage() {
-  const [certificates, setCertificates] = useState<Certificate[]>([
-    {
-      id: "CERT-2023-78945",
-      name: "Ahmad Bin Abdullah",
-      university: "University of Technology",
-      date: "2023-05-15",
-      status: "stored",
-      txHash: "0x7f9e8d7c6b5a4e3d2c1b0a9f8e7d6c5b4a3f2e1d",
-    },
-    {
-      id: "CERT-2023-78946",
-      name: "Siti Binti Mohamed",
-      university: "National University",
-      date: "2023-05-15",
-      status: "processing",
-    },
-    {
-      id: "CERT-2023-78947",
-      name: "John Smith",
-      university: "International College",
-      date: "2023-05-14",
-      status: "failed",
-    },
-    {
-      id: "CERT-2023-78948",
-      name: "Lisa Wong",
-      university: "University of Technology",
-      date: "2023-05-14",
-      status: "pending",
-    },
-    {
-      id: "CERT-2023-78949",
-      name: "Raj Patel",
-      university: "National University",
-      date: "2023-05-13",
-      status: "stored",
-      txHash: "0x8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b",
-    },
-  ])
-
+  const { toast } = useToast()
+  const [certificates, setCertificates] = useState<Certificate[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
   const [progress, setProgress] = useState(0)
 
-  const processNextCertificate = () => {
+  // Fetch certificates from MongoDB that don't have a blockchain reference
+  useEffect(() => {
+    const fetchCertificates = async () => {
+      try {
+        setIsLoading(true)
+        // In a real implementation, you would fetch certificates without blockchain references
+        // For now, we'll simulate this with a mix of statuses
+
+        // Fetch some real certificates from MongoDB
+        const result = await getCertificatesByStudentId("")
+
+        if (result.success && result.data && result.data.length > 0) {
+          const formattedCerts = result.data.map((cert: any) => ({
+            id: cert.ipfsCid.substring(0, 10) + "...",
+            name: cert.studentName,
+            university: "University of Technology",
+            date: new Date(cert.issueDate).toLocaleDateString(),
+            status: cert.blockchainReference ? "stored" : "pending",
+            txHash: cert.blockchainReference,
+            ipfsCid: cert.ipfsCid,
+          }))
+
+          // Add some mock certificates with different statuses for demonstration
+          const mockCerts = [
+            {
+              id: "CERT-2023-78946",
+              name: "Siti Binti Mohamed",
+              university: "National University",
+              date: "2023-05-15",
+              status: "processing" as CertificateStatus,
+            },
+            {
+              id: "CERT-2023-78947",
+              name: "John Smith",
+              university: "International College",
+              date: "2023-05-14",
+              status: "failed" as CertificateStatus,
+            },
+            {
+              id: "CERT-2023-78948",
+              name: "Lisa Wong",
+              university: "University of Technology",
+              date: "2023-05-14",
+              status: "pending" as CertificateStatus,
+            },
+          ]
+
+          setCertificates([...formattedCerts, ...mockCerts])
+        } else {
+          // If no certificates found, use mock data
+          setCertificates([
+            {
+              id: "CERT-2023-78945",
+              name: "Ahmad Bin Abdullah",
+              university: "University of Technology",
+              date: "2023-05-15",
+              status: "stored",
+              txHash: "0x7f9e8d7c6b5a4e3d2c1b0a9f8e7d6c5b4a3f2e1d",
+            },
+            {
+              id: "CERT-2023-78946",
+              name: "Siti Binti Mohamed",
+              university: "National University",
+              date: "2023-05-15",
+              status: "processing",
+            },
+            {
+              id: "CERT-2023-78947",
+              name: "John Smith",
+              university: "International College",
+              date: "2023-05-14",
+              status: "failed",
+            },
+            {
+              id: "CERT-2023-78948",
+              name: "Lisa Wong",
+              university: "University of Technology",
+              date: "2023-05-14",
+              status: "pending",
+            },
+            {
+              id: "CERT-2023-78949",
+              name: "Raj Patel",
+              university: "National University",
+              date: "2023-05-13",
+              status: "stored",
+              txHash: "0x8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b",
+            },
+          ])
+        }
+      } catch (error) {
+        console.error("Error fetching certificates:", error)
+        toast({
+          title: "Error",
+          description: "Failed to fetch certificates",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchCertificates()
+  }, [toast])
+
+  const processNextCertificate = async () => {
+    const pendingCert = certificates.find((cert) => cert.status === "pending")
+    if (!pendingCert || !pendingCert.ipfsCid) return
+
     setIsProcessing(true)
     setProgress(0)
 
+    // Start progress animation
     const interval = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 100) {
           clearInterval(interval)
-          setIsProcessing(false)
-
-          // Update a pending certificate to stored
-          setCertificates((prev) => {
-            const updated = [...prev]
-            const pendingIndex = updated.findIndex((cert) => cert.status === "pending")
-            if (pendingIndex !== -1) {
-              updated[pendingIndex] = {
-                ...updated[pendingIndex],
-                status: "stored",
-                txHash: "0x" + Math.random().toString(16).substring(2, 42),
-              }
-            }
-            return updated
-          })
-
-          return 0
+          return 100
         }
         return prev + 5
       })
     }, 150)
+
+    try {
+      // Call the API to process the certificate
+      const response = await fetch("/api/blockchain/process-certificate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ certificateId: pendingCert.ipfsCid }),
+      })
+
+      const result = await response.json()
+
+      if (response.ok && result.success) {
+        // Update the certificate status
+        setCertificates((prev) => {
+          const updated = [...prev]
+          const index = updated.findIndex((cert) => cert.ipfsCid === pendingCert.ipfsCid)
+          if (index !== -1) {
+            updated[index] = {
+              ...updated[index],
+              status: "stored",
+              txHash: result.data.txHash,
+            }
+          }
+          return updated
+        })
+
+        toast({
+          title: "Success",
+          description: "Certificate processed successfully",
+        })
+      } else {
+        throw new Error(result.message || "Failed to process certificate")
+      }
+    } catch (error) {
+      console.error("Error processing certificate:", error)
+      toast({
+        title: "Error",
+        description: "Failed to process certificate",
+        variant: "destructive",
+      })
+
+      // Update the certificate status to failed
+      setCertificates((prev) => {
+        const updated = [...prev]
+        const index = updated.findIndex((cert) => cert.ipfsCid === pendingCert.ipfsCid)
+        if (index !== -1) {
+          updated[index] = {
+            ...updated[index],
+            status: "failed",
+          }
+        }
+        return updated
+      })
+    } finally {
+      clearInterval(interval)
+      setProgress(0)
+      setIsProcessing(false)
+    }
+  }
+
+  const handleRetry = async (cert: Certificate) => {
+    if (!cert.ipfsCid) return
+
+    // Update the certificate status to pending
+    setCertificates((prev) => {
+      const updated = [...prev]
+      const index = updated.findIndex((c) => c.ipfsCid === cert.ipfsCid)
+      if (index !== -1) {
+        updated[index] = {
+          ...updated[index],
+          status: "pending",
+        }
+      }
+      return updated
+    })
+
+    toast({
+      title: "Certificate Queued",
+      description: "Certificate has been queued for processing",
+    })
   }
 
   const getStatusBadge = (status: CertificateStatus) => {
@@ -133,39 +274,50 @@ export default function BlockchainStoragePage() {
               <CardDescription>Certificates waiting to be stored on the blockchain</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {certificates.map((cert) => (
-                  <div
-                    key={cert.id}
-                    className={`flex flex-wrap items-center justify-between gap-4 rounded-md border p-4 ${
-                      cert.status === "processing" ? "border-blue-200 bg-blue-50" : ""
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-8 w-8 text-gray-400" />
-                      <div>
-                        <h3 className="font-medium">{cert.name}</h3>
-                        <p className="text-sm text-gray-500">
-                          {cert.id} • {cert.university}
-                        </p>
+              {isLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-gray-800"></div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {certificates.map((cert) => (
+                    <div
+                      key={cert.id}
+                      className={`flex flex-wrap items-center justify-between gap-4 rounded-md border p-4 ${
+                        cert.status === "processing" ? "border-blue-200 bg-blue-50" : ""
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-8 w-8 text-gray-400" />
+                        <div>
+                          <h3 className="font-medium">{cert.name}</h3>
+                          <p className="text-sm text-gray-500">
+                            {cert.id} • {cert.university}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {getStatusBadge(cert.status)}
+                        {cert.status === "stored" && (
+                          <div className="hidden text-xs text-gray-500 sm:block">
+                            TX: {cert.txHash?.substring(0, 10)}...
+                          </div>
+                        )}
+                        {cert.status === "failed" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 gap-1 text-xs"
+                            onClick={() => handleRetry(cert)}
+                          >
+                            <RefreshCw className="h-3 w-3" /> Retry
+                          </Button>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      {getStatusBadge(cert.status)}
-                      {cert.status === "stored" && (
-                        <div className="hidden text-xs text-gray-500 sm:block">
-                          TX: {cert.txHash?.substring(0, 10)}...
-                        </div>
-                      )}
-                      {cert.status === "failed" && (
-                        <Button size="sm" variant="outline" className="h-7 gap-1 text-xs">
-                          <RefreshCw className="h-3 w-3" /> Retry
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
             <CardFooter className="flex justify-between border-t bg-gray-50 px-6 py-4">
               <div className="text-sm text-gray-500">
@@ -220,11 +372,13 @@ export default function BlockchainStoragePage() {
                         <div className="mt-2 space-y-1 text-sm">
                           <div className="flex justify-between">
                             <span>Total Certificates:</span>
-                            <span className="font-medium">1,245</span>
+                            <span className="font-medium">{certificates.length}</span>
                           </div>
                           <div className="flex justify-between">
                             <span>Stored Today:</span>
-                            <span className="font-medium">37</span>
+                            <span className="font-medium">
+                              {certificates.filter((c) => c.status === "stored").length}
+                            </span>
                           </div>
                           <div className="flex justify-between">
                             <span>Average Gas Cost:</span>

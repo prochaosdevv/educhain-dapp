@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ArrowLeft, FileCheck, CheckCircle, XCircle, AlertCircle, Loader2, Code } from "lucide-react"
+import { ArrowLeft, FileCheck, CheckCircle, XCircle, AlertCircle, Loader2, Code, Download } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { CustomConnectButton } from "@/components/custom-connect-button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { SuccessMessage } from "@/components/success-message"
 
 interface StudentData {
   studentId: string
@@ -27,16 +28,22 @@ interface StudentData {
 export default function VerifyEnrollmentPage() {
   const [studentId, setStudentId] = useState("")
   const [icNumber, setIcNumber] = useState("")
+  const [loanAmount, setLoanAmount] = useState("10000")
   const [isVerifying, setIsVerifying] = useState(false)
+  const [isProcessingLoan, setIsProcessingLoan] = useState(false)
   const [verificationResult, setVerificationResult] = useState<"active" | "inactive" | "partial" | null>(null)
   const [studentData, setStudentData] = useState<StudentData | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<{ title: string; message: string } | null>(null)
+  const [loanProcessed, setLoanProcessed] = useState(false)
 
   const handleVerify = async () => {
     if (!studentId) return
 
     setIsVerifying(true)
     setError(null)
+    setSuccess(null)
+    setLoanProcessed(false)
 
     try {
       const response = await fetch("/api/ptptn/verify-loan", {
@@ -52,6 +59,10 @@ export default function VerifyEnrollmentPage() {
       if (response.ok && data.success) {
         setVerificationResult(data.verificationResult)
         setStudentData(data.studentData)
+        setSuccess({
+          title: "Verification Complete",
+          message: "Student enrollment status has been verified successfully.",
+        })
       } else {
         setError(data.message || "Failed to verify enrollment status")
         setVerificationResult(data.verificationResult || null)
@@ -65,6 +76,81 @@ export default function VerifyEnrollmentPage() {
     } finally {
       setIsVerifying(false)
     }
+  }
+
+  const handleProcessLoan = async () => {
+    if (!studentId || !icNumber) {
+      setError("Student ID and IC Number are required to process the loan")
+      return
+    }
+
+    setIsProcessingLoan(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const response = await fetch("/api/ptptn/process-loan", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          studentId,
+          icNumber,
+          loanAmount: Number.parseFloat(loanAmount),
+        }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        setSuccess({
+          title: "Loan Processed Successfully",
+          message: "The loan has been approved and the IC number has been recorded against the student.",
+        })
+        setLoanProcessed(true)
+      } else {
+        setError(data.message || "Failed to process loan")
+      }
+    } catch (err) {
+      console.error("Error processing loan:", err)
+      setError("An error occurred while processing the loan. Please try again.")
+    } finally {
+      setIsProcessingLoan(false)
+    }
+  }
+
+  const handleDownloadReport = () => {
+    if (!studentData) return
+
+    // Create a report text
+    const reportText = `
+PTPTN Loan Verification Report
+------------------------------
+Student ID: ${studentData.studentId}
+Student Name: ${studentData.studentName}
+IC Number: ${icNumber || "Not provided"}
+Institution: ${studentData.institution}
+Program: ${studentData.program}
+Current Semester: ${studentData.currentSemester}
+Enrollment Status: ${studentData.enrollmentStatus}
+Financial Status: ${studentData.financialStatus}
+Verification Result: ${verificationResult?.toUpperCase()}
+Verification Date: ${new Date().toLocaleString()}
+${loanProcessed ? "Loan Status: APPROVED" : ""}
+${loanProcessed ? `Loan Amount: RM ${loanAmount}` : ""}
+    `.trim()
+
+    // Create a blob and download it
+    const blob = new Blob([reportText], { type: "text/plain" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `loan-verification-${studentData.studentId}.txt`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   return (
@@ -90,6 +176,8 @@ export default function VerifyEnrollmentPage() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+
+      {success && <SuccessMessage title={success.title} message={success.message} />}
 
       <Card>
         <CardHeader>
@@ -199,6 +287,10 @@ export default function VerifyEnrollmentPage() {
                         <p className="font-medium">{studentData.studentId}</p>
                       </div>
                       <div>
+                        <p className="text-xs text-gray-500">IC Number</p>
+                        <p className="font-medium">{icNumber || "Not provided"}</p>
+                      </div>
+                      <div>
                         <p className="text-xs text-gray-500">Institution</p>
                         <p className="font-medium">{studentData.institution}</p>
                       </div>
@@ -218,23 +310,61 @@ export default function VerifyEnrollmentPage() {
                         <p className="text-xs text-gray-500">Financial Status</p>
                         <p className="font-medium">{studentData.financialStatus}</p>
                       </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Last Verified</p>
-                        <p className="font-medium">{new Date(studentData.lastVerified).toLocaleDateString()}</p>
+                    </div>
+
+                    {!loanProcessed && verificationResult !== "inactive" && (
+                      <div className="mt-4 border-t pt-4">
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="loanAmount">Loan Amount (RM)</Label>
+                            <Input
+                              id="loanAmount"
+                              type="number"
+                              value={loanAmount}
+                              onChange={(e) => setLoanAmount(e.target.value)}
+                            />
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <Button size="sm" variant="outline" onClick={handleDownloadReport}>
+                              <Download className="mr-1 h-4 w-4" />
+                              Download Report
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="bg-amber-600 hover:bg-amber-700"
+                              disabled={verificationResult === "inactive" || isProcessingLoan || !icNumber}
+                              onClick={handleProcessLoan}
+                            >
+                              {isProcessingLoan ? (
+                                <>
+                                  <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                                  Processing...
+                                </>
+                              ) : (
+                                "Process Loan"
+                              )}
+                            </Button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="mt-3 flex justify-end gap-2">
-                      <Button size="sm" variant="outline">
-                        Download Report
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="bg-amber-600 hover:bg-amber-700"
-                        disabled={verificationResult === "inactive"}
-                      >
-                        Process Loan
-                      </Button>
-                    </div>
+                    )}
+
+                    {loanProcessed && (
+                      <div className="mt-4 rounded-md bg-green-50 p-3">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <p className="text-sm text-green-800">
+                            Loan processed successfully. IC number has been recorded.
+                          </p>
+                        </div>
+                        <div className="mt-2 flex justify-end">
+                          <Button size="sm" variant="outline" onClick={handleDownloadReport}>
+                            <Download className="mr-1 h-4 w-4" />
+                            Download Report
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -248,6 +378,7 @@ export default function VerifyEnrollmentPage() {
             <li>Minimum of 12 credit hours per semester for full-time status</li>
             <li>Satisfactory academic progress must be maintained</li>
             <li>Verification must be completed within 30 days of disbursement</li>
+            <li>IC number must be recorded for all loan disbursements</li>
           </ul>
           <div className="mt-4 flex items-center">
             <Code className="mr-2 h-4 w-4 text-amber-600" />

@@ -14,6 +14,8 @@ export interface Certificate {
   issuer: string
   issuedAt: string
   blockchainReference?: string
+  blockchainStatus?: string
+  processedAt?: Date
   createdAt: Date
   updatedAt: Date
 }
@@ -33,5 +35,20 @@ export interface Enrollment {
   updatedBy: string
   updatedAt: string
   blockchainReference?: string
+  createdAt: Date
+  icNumber?: string // Added IC number field
+}
+
+export interface StudentLoan {
+  studentId: string
+  studentName: string
+  icNumber: string
+  program: string
+  loanAmount: number
+  loanStatus: "pending" | "approved" | "disbursed" | "rejected"
+  verificationResult: "active" | "inactive" | "partial"
+  institution: string
+  approvedBy?: string
+  approvedAt?: Date
   createdAt: Date
 }
