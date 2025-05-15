@@ -141,7 +141,7 @@ export async function uploadJSONToPinata(data: any, name = "data.json"): Promise
  * @param filename Optional filename
  * @returns The URL of the file
  */
-export function getIPFSUrl(cid: string, filename?: string): string {
+export async function getIPFSUrl(cid: string, filename?: string): Promise<string> {
   // Use Pinata's gateway for accessing the file
   return `https://gateway.pinata.cloud/ipfs/${cid}${filename ? "/" + encodeURIComponent(filename) : ""}`
 }
