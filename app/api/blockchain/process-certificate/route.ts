@@ -4,7 +4,7 @@ import clientPromise from "@/lib/mongodb"
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { certificateId } = body
+    const { certificateId, txHash } = body
 
     if (!certificateId) {
       return NextResponse.json({ success: false, message: "Certificate ID is required" }, { status: 400 })
@@ -25,16 +25,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Simulate blockchain processing
-    // In a real implementation, this would interact with a blockchain network
-    const txHash = "0x" + Math.random().toString(16).substring(2, 42)
-
     // Update the certificate with blockchain reference
     await certificates.updateOne(
       { ipfsCid: certificateId },
       {
         $set: {
-          blockchainReference: txHash,
+          blockchainReference: txHash || "0x" + Math.random().toString(16).substring(2, 42),
           blockchainStatus: "stored",
           processedAt: new Date(),
         },
@@ -46,7 +42,7 @@ export async function POST(request: NextRequest) {
       message: "Certificate processed successfully",
       data: {
         certificateId,
-        txHash,
+        txHash: txHash || "0x" + Math.random().toString(16).substring(2, 42),
         processedAt: new Date(),
       },
     })

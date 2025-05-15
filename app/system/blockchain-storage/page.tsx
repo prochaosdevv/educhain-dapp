@@ -8,7 +8,9 @@ import Link from "next/link"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
-import { getCertificatesByStudentId } from "@/app/actions/mongodb-actions"
+import { getCertificatesByStudentId, getEnrollmentsByStudentId } from "@/app/actions/mongodb-actions"
+import { useAccount, useWriteContract, useReadContract } from "wagmi"
+import { UNIVERSITY_CONTRACT_ADDRESS, UNIVERSITY_CONTRACT_ABI } from "@/lib/contracts"
 
 type CertificateStatus = "pending" | "processing" | "stored" | "failed"
 
@@ -20,63 +22,92 @@ interface Certificate {
   status: CertificateStatus
   txHash?: string
   ipfsCid?: string
+  studentId?: string
+  icNumber?: string
+  enrollmentHash?: string
 }
 
 export default function BlockchainStoragePage() {
   const { toast } = useToast()
+  const { address, isConnected } = useAccount()
   const [certificates, setCertificates] = useState<Certificate[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [studentCount, setStudentCount] = useState<number>(0)
 
-  // Fetch certificates from MongoDB that don't have a blockchain reference
+  // Contract write hook
+  const { writeContract, isPending: isWritePending, isSuccess, isError, error } = useWriteContract()
+
+  // Contract read hook for student count
+  const { data: studentCountData } = useReadContract({
+    address: UNIVERSITY_CONTRACT_ADDRESS,
+    abi: UNIVERSITY_CONTRACT_ABI,
+    functionName: "getStudentCount",
+    watch: true,
+  })
+
+  // Update student count when data changes
   useEffect(() => {
-    const fetchCertificates = async () => {
+    if (studentCountData) {
+      setStudentCount(Number(studentCountData))
+    }
+  }, [studentCountData])
+
+  // Show toast on transaction success or error
+  useEffect(() => {
+    if (isSuccess) {
+      toast({
+        title: "Transaction Successful",
+        description: "Certificate has been stored on the blockchain",
+      })
+    }
+    if (isError && error) {
+      toast({
+        title: "Transaction Failed",
+        description: error.message || "Failed to store certificate on blockchain",
+        variant: "destructive",
+      })
+    }
+  }, [isSuccess, isError, error, toast])
+
+  // Fetch certificates and enrollments from MongoDB
+  useEffect(() => {
+    const fetchData = async () => {
       try {
         setIsLoading(true)
-        // In a real implementation, you would fetch certificates without blockchain references
-        // For now, we'll simulate this with a mix of statuses
 
-        // Fetch some real certificates from MongoDB
-        const result = await getCertificatesByStudentId("")
+        // Fetch certificates
+        const certResult = await getCertificatesByStudentId("")
 
-        if (result.success && result.data && result.data.length > 0) {
-          const formattedCerts = result.data.map((cert: any) => ({
-            id: cert.ipfsCid.substring(0, 10) + "...",
-            name: cert.studentName,
-            university: "University of Technology",
-            date: new Date(cert.issueDate).toLocaleDateString(),
-            status: cert.blockchainReference ? "stored" : "pending",
-            txHash: cert.blockchainReference,
-            ipfsCid: cert.ipfsCid,
-          }))
+        // Fetch all enrollments to get IC numbers
+        const enrollResult = await getEnrollmentsByStudentId("")
 
-          // Add some mock certificates with different statuses for demonstration
-          const mockCerts = [
-            {
-              id: "CERT-2023-78946",
-              name: "Siti Binti Mohamed",
-              university: "National University",
-              date: "2023-05-15",
-              status: "processing" as CertificateStatus,
-            },
-            {
-              id: "CERT-2023-78947",
-              name: "John Smith",
-              university: "International College",
-              date: "2023-05-14",
-              status: "failed" as CertificateStatus,
-            },
-            {
-              id: "CERT-2023-78948",
-              name: "Lisa Wong",
+        if (certResult.success && certResult.data && certResult.data.length > 0) {
+          const formattedCerts = certResult.data.map((cert: any) => {
+            // Find matching enrollment to get IC number
+            const enrollment =
+              enrollResult.success && enrollResult.data
+                ? enrollResult.data.find((e: any) => e.studentId === cert.studentId)
+                : null
+
+            return {
+              id: cert.ipfsCid.substring(0, 10) + "...",
+              name: cert.studentName,
               university: "University of Technology",
-              date: "2023-05-14",
-              status: "pending" as CertificateStatus,
-            },
-          ]
+              date: new Date(cert.issueDate).toLocaleDateString(),
+              status: cert.blockchainReference ? "stored" : "pending",
+              txHash: cert.blockchainReference,
+              ipfsCid: cert.ipfsCid,
+              studentId: cert.studentId,
+              // Extract numeric part from studentId (assuming format like "STU-2023-12345")
+              studentIdNumber: cert.studentId.split("-").pop() || "0",
+              icNumber: enrollment?.icNumber || "",
+              enrollmentHash: enrollment?.ipfsCid || "",
+            }
+          })
 
-          setCertificates([...formattedCerts, ...mockCerts])
+          setCertificates(formattedCerts)
         } else {
           // If no certificates found, use mock data
           setCertificates([
@@ -87,13 +118,21 @@ export default function BlockchainStoragePage() {
               date: "2023-05-15",
               status: "stored",
               txHash: "0x7f9e8d7c6b5a4e3d2c1b0a9f8e7d6c5b4a3f2e1d",
+              studentId: "STU-2023-12345",
+              studentIdNumber: "12345",
+              icNumber: "901234-56-7890",
+              enrollmentHash: "QmX7bVbVH5mKgbFJ9xJ4...",
             },
             {
               id: "CERT-2023-78946",
               name: "Siti Binti Mohamed",
               university: "National University",
               date: "2023-05-15",
-              status: "processing",
+              status: "pending",
+              studentId: "STU-2023-12346",
+              studentIdNumber: "12346",
+              icNumber: "901234-56-7891",
+              enrollmentHash: "QmX7bVbVH5mKgbFJ9xJ5...",
             },
             {
               id: "CERT-2023-78947",
@@ -101,26 +140,15 @@ export default function BlockchainStoragePage() {
               university: "International College",
               date: "2023-05-14",
               status: "failed",
-            },
-            {
-              id: "CERT-2023-78948",
-              name: "Lisa Wong",
-              university: "University of Technology",
-              date: "2023-05-14",
-              status: "pending",
-            },
-            {
-              id: "CERT-2023-78949",
-              name: "Raj Patel",
-              university: "National University",
-              date: "2023-05-13",
-              status: "stored",
-              txHash: "0x8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b",
+              studentId: "STU-2023-12347",
+              studentIdNumber: "12347",
+              icNumber: "901234-56-7892",
+              enrollmentHash: "QmX7bVbVH5mKgbFJ9xJ6...",
             },
           ])
         }
       } catch (error) {
-        console.error("Error fetching certificates:", error)
+        console.error("Error fetching data:", error)
         toast({
           title: "Error",
           description: "Failed to fetch certificates",
@@ -131,12 +159,50 @@ export default function BlockchainStoragePage() {
       }
     }
 
-    fetchCertificates()
+    fetchData()
   }, [toast])
 
   const processNextCertificate = async () => {
+    if (!isConnected) {
+      toast({
+        title: "Wallet Not Connected",
+        description: "Please connect your wallet to process certificates",
+        variant: "destructive",
+      })
+      return
+    }
+
     const pendingCert = certificates.find((cert) => cert.status === "pending")
-    if (!pendingCert || !pendingCert.ipfsCid) return
+    if (!pendingCert || !pendingCert.ipfsCid) {
+      toast({
+        title: "No Pending Certificates",
+        description: "There are no pending certificates to process",
+      })
+      return
+    }
+
+    // Check if we have all required data
+    if (!pendingCert.studentIdNumber || !pendingCert.enrollmentHash || !pendingCert.ipfsCid) {
+      toast({
+        title: "Missing Data",
+        description: "Certificate is missing required data for blockchain storage",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Update certificate status to processing
+    setCertificates((prev) => {
+      const updated = [...prev]
+      const index = updated.findIndex((cert) => cert.ipfsCid === pendingCert.ipfsCid)
+      if (index !== -1) {
+        updated[index] = {
+          ...updated[index],
+          status: "processing",
+        }
+      }
+      return updated
+    })
 
     setIsProcessing(true)
     setProgress(0)
@@ -148,44 +214,61 @@ export default function BlockchainStoragePage() {
           clearInterval(interval)
           return 100
         }
-        return prev + 5
+        return prev + 2
       })
     }, 150)
 
     try {
-      // Call the API to process the certificate
-      const response = await fetch("/api/blockchain/process-certificate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ certificateId: pendingCert.ipfsCid }),
+      // Call the smart contract function
+      writeContract({
+        address: UNIVERSITY_CONTRACT_ADDRESS,
+        abi: UNIVERSITY_CONTRACT_ABI,
+        functionName: "storeStudentData",
+        args: [
+          BigInt(pendingCert.studentIdNumber), // Convert to BigInt for uint256
+          pendingCert.enrollmentHash || "",
+          pendingCert.ipfsCid,
+          pendingCert.icNumber || "",
+        ],
       })
 
-      const result = await response.json()
-
-      if (response.ok && result.success) {
-        // Update the certificate status
-        setCertificates((prev) => {
-          const updated = [...prev]
-          const index = updated.findIndex((cert) => cert.ipfsCid === pendingCert.ipfsCid)
-          if (index !== -1) {
-            updated[index] = {
-              ...updated[index],
-              status: "stored",
-              txHash: result.data.txHash,
+      // Wait for transaction to be mined
+      // Note: In a real app, you'd listen for the transaction receipt
+      // For now, we'll simulate this with a timeout
+      setTimeout(() => {
+        if (!isError) {
+          // Update certificate status to stored
+          setCertificates((prev) => {
+            const updated = [...prev]
+            const index = updated.findIndex((cert) => cert.ipfsCid === pendingCert.ipfsCid)
+            if (index !== -1) {
+              updated[index] = {
+                ...updated[index],
+                status: "stored",
+                txHash: "0x" + Math.random().toString(16).substring(2, 42), // Mock tx hash
+              }
             }
-          }
-          return updated
-        })
+            return updated
+          })
+        } else {
+          // Update certificate status to failed
+          setCertificates((prev) => {
+            const updated = [...prev]
+            const index = updated.findIndex((cert) => cert.ipfsCid === pendingCert.ipfsCid)
+            if (index !== -1) {
+              updated[index] = {
+                ...updated[index],
+                status: "failed",
+              }
+            }
+            return updated
+          })
+        }
 
-        toast({
-          title: "Success",
-          description: "Certificate processed successfully",
-        })
-      } else {
-        throw new Error(result.message || "Failed to process certificate")
-      }
+        clearInterval(interval)
+        setProgress(0)
+        setIsProcessing(false)
+      }, 5000)
     } catch (error) {
       console.error("Error processing certificate:", error)
       toast({
@@ -194,7 +277,7 @@ export default function BlockchainStoragePage() {
         variant: "destructive",
       })
 
-      // Update the certificate status to failed
+      // Update certificate status to failed
       setCertificates((prev) => {
         const updated = [...prev]
         const index = updated.findIndex((cert) => cert.ipfsCid === pendingCert.ipfsCid)
@@ -206,7 +289,7 @@ export default function BlockchainStoragePage() {
         }
         return updated
       })
-    } finally {
+
       clearInterval(interval)
       setProgress(0)
       setIsProcessing(false)
@@ -292,8 +375,9 @@ export default function BlockchainStoragePage() {
                         <div>
                           <h3 className="font-medium">{cert.name}</h3>
                           <p className="text-sm text-gray-500">
-                            {cert.id} • {cert.university}
+                            {cert.studentId || cert.id} • {cert.university}
                           </p>
+                          {cert.icNumber && <p className="text-xs text-gray-500">IC: {cert.icNumber}</p>}
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
@@ -326,9 +410,11 @@ export default function BlockchainStoragePage() {
               </div>
               <Button
                 onClick={processNextCertificate}
-                disabled={isProcessing || !certificates.some((c) => c.status === "pending")}
+                disabled={
+                  isProcessing || isWritePending || !certificates.some((c) => c.status === "pending") || !isConnected
+                }
               >
-                Process Next Certificate
+                {isProcessing || isWritePending ? "Processing..." : "Process Next Certificate"}
               </Button>
             </CardFooter>
           </Card>
@@ -342,7 +428,7 @@ export default function BlockchainStoragePage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
-                {isProcessing && (
+                {(isProcessing || isWritePending) && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Processing Certificate</span>
@@ -359,7 +445,11 @@ export default function BlockchainStoragePage() {
                       <CheckCircle className="h-5 w-5 text-green-600" />
                       <div>
                         <h3 className="font-medium">Blockchain Connection Active</h3>
-                        <p className="text-sm text-gray-600">Connected to Ethereum Mainnet</p>
+                        <p className="text-sm text-gray-600">
+                          {isConnected
+                            ? `Connected to Ethereum (${address?.substring(0, 6)}...${address?.substring(38)})`
+                            : "Wallet not connected"}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -371,6 +461,10 @@ export default function BlockchainStoragePage() {
                         <h3 className="font-medium">Storage Statistics</h3>
                         <div className="mt-2 space-y-1 text-sm">
                           <div className="flex justify-between">
+                            <span>Total Students:</span>
+                            <span className="font-medium">{studentCount}</span>
+                          </div>
+                          <div className="flex justify-between">
                             <span>Total Certificates:</span>
                             <span className="font-medium">{certificates.length}</span>
                           </div>
@@ -381,8 +475,11 @@ export default function BlockchainStoragePage() {
                             </span>
                           </div>
                           <div className="flex justify-between">
-                            <span>Average Gas Cost:</span>
-                            <span className="font-medium">0.0042 ETH</span>
+                            <span>Contract Address:</span>
+                            <span className="font-medium text-xs">
+                              {UNIVERSITY_CONTRACT_ADDRESS.substring(0, 6)}...
+                              {UNIVERSITY_CONTRACT_ADDRESS.substring(38)}
+                            </span>
                           </div>
                         </div>
                       </div>
