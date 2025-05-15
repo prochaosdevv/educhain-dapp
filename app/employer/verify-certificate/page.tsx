@@ -115,6 +115,12 @@ export default function VerifyCertificatePage() {
     })
   }
 
+  const handleViewPDF = () => {
+    if (certificate && certificate.fileUrl) {
+      window.open(certificate.fileUrl, "_blank")
+    }
+  }
+
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -246,6 +252,15 @@ export default function VerifyCertificatePage() {
                               Awarded on {new Date(certificate.issueDate).toLocaleDateString()}
                             </p>
                           </div>
+
+                          {certificate.fileUrl && (
+                            <div className="flex justify-center mt-4">
+                              <Button onClick={handleViewPDF} className="bg-purple-600 hover:bg-purple-700">
+                                <FileText className="mr-2 h-4 w-4" />
+                                View Certificate PDF
+                              </Button>
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
 
@@ -279,10 +294,22 @@ export default function VerifyCertificatePage() {
                               <p className="text-xs text-gray-500">Certificate Type</p>
                               <p className="font-medium">{certificate.certificateType}</p>
                             </div>
+                            {certificate.fileName && (
+                              <div>
+                                <p className="text-xs text-gray-500">Certificate File</p>
+                                <p className="font-medium">{certificate.fileName}</p>
+                              </div>
+                            )}
                             <div className="md:col-span-2">
                               <p className="text-xs text-gray-500">IPFS CID</p>
                               <p className="overflow-hidden text-ellipsis font-mono text-xs">{certificate.ipfsCid}</p>
                             </div>
+                            {certificate.fileCid && (
+                              <div className="md:col-span-2">
+                                <p className="text-xs text-gray-500">File CID</p>
+                                <p className="overflow-hidden text-ellipsis font-mono text-xs">{certificate.fileCid}</p>
+                              </div>
+                            )}
                             <div className="md:col-span-2">
                               <p className="text-xs text-gray-500">Blockchain Reference</p>
                               <p className="overflow-hidden text-ellipsis font-mono text-xs">
@@ -290,15 +317,25 @@ export default function VerifyCertificatePage() {
                               </p>
                             </div>
                           </div>
-                          <div className="mt-4 flex justify-end gap-2">
+                          <div className="mt-4 flex flex-wrap gap-2">
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => window.open(certificate.ipfsUrl, "_blank")}
                             >
                               <ExternalLink className="mr-1 h-4 w-4" />
-                              View on IPFS
+                              View Data on IPFS
                             </Button>
+                            {certificate.fileUrl && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => window.open(certificate.fileUrl, "_blank")}
+                              >
+                                <FileText className="mr-1 h-4 w-4" />
+                                View PDF on IPFS
+                              </Button>
+                            )}
                           </div>
                         </CardContent>
                       </Card>

@@ -6,7 +6,17 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Download, GraduationCap, Share2, QrCode, Loader2, AlertCircle } from "lucide-react"
+import {
+  ArrowLeft,
+  Download,
+  GraduationCap,
+  Share2,
+  QrCode,
+  Loader2,
+  AlertCircle,
+  FileText,
+  ExternalLink,
+} from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { getCertificatesByStudentId, getCertificateByIpfsCid } from "@/app/actions/mongodb-actions"
@@ -73,6 +83,12 @@ export default function ViewCertificatePage() {
 
   const handleCertificateSelect = (certificate: any) => {
     setSelectedCertificate(certificate)
+  }
+
+  const handleViewPDF = () => {
+    if (selectedCertificate && selectedCertificate.fileUrl) {
+      window.open(selectedCertificate.fileUrl, "_blank")
+    }
   }
 
   return (
@@ -193,9 +209,15 @@ export default function ViewCertificatePage() {
               </div>
             </CardContent>
             <CardFooter className="flex justify-center gap-4 border-t bg-gray-50 p-4">
+              {selectedCertificate.fileUrl && (
+                <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={handleViewPDF}>
+                  <FileText className="h-4 w-4" />
+                  View PDF
+                </Button>
+              )}
               <Button variant="outline" size="sm" className="flex items-center gap-1">
                 <Download className="h-4 w-4" />
-                Download PDF
+                Download
               </Button>
               <Button variant="outline" size="sm" className="flex items-center gap-1">
                 <Share2 className="h-4 w-4" />
@@ -245,6 +267,12 @@ export default function ViewCertificatePage() {
                       <h4 className="text-sm font-medium text-gray-500">Honors</h4>
                       <p>{selectedCertificate.achievements || "None"}</p>
                     </div>
+                    {selectedCertificate.fileName && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-500">Certificate File</h4>
+                        <p>{selectedCertificate.fileName}</p>
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
                 <TabsContent value="blockchain" className="space-y-4 pt-4">
@@ -255,6 +283,12 @@ export default function ViewCertificatePage() {
                         <span className="font-medium">IPFS CID:</span>
                         <code className="rounded bg-gray-100 px-2 py-1 text-xs">{selectedCertificate.ipfsCid}</code>
                       </div>
+                      {selectedCertificate.fileCid && (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium">File CID:</span>
+                          <code className="rounded bg-gray-100 px-2 py-1 text-xs">{selectedCertificate.fileCid}</code>
+                        </div>
+                      )}
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium">Blockchain Reference:</span>
                         <code className="rounded bg-gray-100 px-2 py-1 text-xs">
@@ -269,14 +303,25 @@ export default function ViewCertificatePage() {
                         <span className="font-medium">Issuer:</span>
                         <code className="rounded bg-gray-100 px-2 py-1 text-xs">{selectedCertificate.issuer}</code>
                       </div>
-                      <div className="mt-2">
+                      <div className="mt-2 flex gap-2">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => window.open(selectedCertificate.ipfsUrl, "_blank")}
                         >
-                          View on IPFS
+                          <ExternalLink className="mr-1 h-4 w-4" />
+                          View Data on IPFS
                         </Button>
+                        {selectedCertificate.fileUrl && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(selectedCertificate.fileUrl, "_blank")}
+                          >
+                            <FileText className="mr-1 h-4 w-4" />
+                            View PDF on IPFS
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
