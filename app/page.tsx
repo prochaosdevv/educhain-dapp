@@ -205,29 +205,6 @@ export default function Home() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Students */}
-          <Card className="overflow-hidden border-2 border-blue-200 dark:border-blue-900 lg:col-span-1">
-            <CardHeader className="bg-blue-100 dark:bg-blue-900">
-              <div className="flex items-center gap-3">
-                <GraduationCap className="h-8 w-8 text-blue-700 dark:text-blue-300" />
-                <CardTitle>Students</CardTitle>
-              </div>
-              <CardDescription>Student management and records</CardDescription>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-4">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Manage student records and view student information
-                </p>
-                <div className="space-y-2">
-                  <Link href="/students/records">
-                    <Button className="w-full bg-blue-600 hover:bg-blue-700">Student Records</Button>
-                  </Link>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </main>

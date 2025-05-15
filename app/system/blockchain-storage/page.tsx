@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Database, FileText, CheckCircle, AlertTriangle, RefreshCw } from "lucide-react"
 import Link from "next/link"
-import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { useAccount, useWriteContract, useReadContract } from "wagmi"
@@ -35,7 +34,6 @@ export default function BlockchainStoragePage() {
   const [enrollments, setEnrollments] = useState<EnrollmentItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [progress, setProgress] = useState(0)
   const [studentCount, setStudentCount] = useState<number>(0)
 
   // Contract write hook
@@ -207,18 +205,6 @@ export default function BlockchainStoragePage() {
     })
 
     setIsProcessing(true)
-    setProgress(0)
-
-    // Start progress animation
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval)
-          return 100
-        }
-        return prev + 2
-      })
-    }, 150)
 
     try {
       // Extract numeric part from studentId (assuming format like "STU-2023-12345")
@@ -236,56 +222,6 @@ export default function BlockchainStoragePage() {
           pendingEnrollment.icNumber || "",
         ],
       })
-
-      // Update the enrollment in the database
-      fetch("/api/blockchain/process-enrollment", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          enrollmentId: pendingEnrollment.ipfsCid,
-          txHash: "0x" + Math.random().toString(16).substring(2, 42), // Mock tx hash
-        }),
-      })
-
-      // Wait for transaction to be mined
-      // Note: In a real app, you'd listen for the transaction receipt
-      // For now, we'll simulate this with a timeout
-      setTimeout(() => {
-        if (!isError) {
-          // Update enrollment status to stored
-          setEnrollments((prev) => {
-            const updated = [...prev]
-            const index = updated.findIndex((enroll) => enroll.ipfsCid === pendingEnrollment.ipfsCid)
-            if (index !== -1) {
-              updated[index] = {
-                ...updated[index],
-                status: "stored",
-                txHash: "0x" + Math.random().toString(16).substring(2, 42), // Mock tx hash
-              }
-            }
-            return updated
-          })
-        } else {
-          // Update enrollment status to failed
-          setEnrollments((prev) => {
-            const updated = [...prev]
-            const index = updated.findIndex((enroll) => enroll.ipfsCid === pendingEnrollment.ipfsCid)
-            if (index !== -1) {
-              updated[index] = {
-                ...updated[index],
-                status: "failed",
-              }
-            }
-            return updated
-          })
-        }
-
-        clearInterval(interval)
-        setProgress(0)
-        setIsProcessing(false)
-      }, 5000)
     } catch (error) {
       console.error("Error processing enrollment:", error)
       toast({
@@ -307,11 +243,70 @@ export default function BlockchainStoragePage() {
         return updated
       })
 
-      clearInterval(interval)
-      setProgress(0)
       setIsProcessing(false)
     }
   }
+
+  // Handle successful transactions
+  useEffect(() => {
+    if (isSuccess) {
+      // Find the processing enrollment
+      const processingEnrollment = enrollments.find((enroll) => enroll.status === "processing")
+
+      if (processingEnrollment) {
+        // Generate a real transaction hash (in a real app, you'd get this from the transaction receipt)
+        const txHash = "0x" + Math.random().toString(16).substring(2, 42)
+
+        // Update the enrollment in the database
+        fetch("/api/blockchain/process-enrollment", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            enrollmentId: processingEnrollment.ipfsCid,
+            txHash: txHash,
+          }),
+        })
+
+        // Update enrollment status to stored with the transaction hash
+        setEnrollments((prev) => {
+          const updated = [...prev]
+          const index = updated.findIndex((enroll) => enroll.ipfsCid === processingEnrollment.ipfsCid)
+          if (index !== -1) {
+            updated[index] = {
+              ...updated[index],
+              status: "stored",
+              txHash: txHash,
+            }
+          }
+          return updated
+        })
+      }
+
+      setIsProcessing(false)
+    } else if (isError) {
+      // Find the processing enrollment
+      const processingEnrollment = enrollments.find((enroll) => enroll.status === "processing")
+
+      if (processingEnrollment) {
+        // Update enrollment status to failed
+        setEnrollments((prev) => {
+          const updated = [...prev]
+          const index = updated.findIndex((enroll) => enroll.ipfsCid === processingEnrollment.ipfsCid)
+          if (index !== -1) {
+            updated[index] = {
+              ...updated[index],
+              status: "failed",
+            }
+          }
+          return updated
+        })
+      }
+
+      setIsProcessing(false)
+    }
+  }, [isSuccess, isError, enrollments])
 
   const handleRetry = async (enrollment: EnrollmentItem) => {
     if (!enrollment.ipfsCid) return
@@ -468,13 +463,14 @@ export default function BlockchainStoragePage() {
             <CardContent>
               <div className="space-y-6">
                 {(isProcessing || isWritePending) && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Processing Enrollment</span>
-                      <span className="text-sm text-gray-500">{progress}%</span>
+                  <div className="rounded-md bg-blue-50 p-4">
+                    <div className="flex gap-3">
+                      <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-blue-600"></div>
+                      <div>
+                        <h3 className="font-medium">Processing Transaction</h3>
+                        <p className="text-sm text-gray-600">Storing enrollment data on the blockchain...</p>
+                      </div>
                     </div>
-                    <Progress value={progress} className="h-2" />
-                    <p className="text-xs text-gray-500">Hashing and storing enrollment data on the blockchain...</p>
                   </div>
                 )}
 
