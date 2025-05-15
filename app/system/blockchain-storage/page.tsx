@@ -7,7 +7,7 @@ import { ArrowLeft, Database, FileText, CheckCircle, AlertTriangle, RefreshCw } 
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
-import { useAccount, useWriteContract, useReadContract } from "wagmi"
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
 import { UNIVERSITY_CONTRACT_ADDRESS, UNIVERSITY_CONTRACT_ABI } from "@/lib/contracts"
 
 type CertificateStatus = "pending" | "processing" | "stored" | "failed"
@@ -35,32 +35,56 @@ export default function BlockchainStoragePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
   const [studentCount, setStudentCount] = useState<number>(0)
+  const [currentProcessingEnrollment, setCurrentProcessingEnrollment] = useState<string | null>(null)
 
   // Contract write hook
-  const { writeContract, isPending: isWritePending, isSuccess, isError, error } = useWriteContract()
+  const {
+    writeContract,
+    isPending: isWritePending,
+    data: hash,
+    isSuccess: isWriteSuccess,
+    isError,
+    error,
+  } = useWriteContract()
 
-  // Contract read hook for student count
-  const { data: studentCountData } = useReadContract({
-    address: UNIVERSITY_CONTRACT_ADDRESS,
-    abi: UNIVERSITY_CONTRACT_ABI,
-    functionName: "getStudentCount",
-    watch: true,
+  // Wait for transaction receipt
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash,
   })
 
-  // Update student count when data changes
+  // Update student count
   useEffect(() => {
-    if (studentCountData) {
-      setStudentCount(Number(studentCountData))
+    const fetchStudentCount = async () => {
+      try {
+        const response = await fetch(`/api/blockchain/student-count`)
+        const data = await response.json()
+        if (data.success) {
+          setStudentCount(data.count)
+        }
+      } catch (error) {
+        console.error("Error fetching student count:", error)
+      }
     }
-  }, [studentCountData])
+
+    fetchStudentCount()
+    // Set up an interval to refresh the count
+    const interval = setInterval(fetchStudentCount, 30000) // every 30 seconds
+
+    return () => clearInterval(interval)
+  }, [])
 
   // Show toast on transaction success or error
   useEffect(() => {
-    if (isSuccess) {
+    if (isConfirmed && hash) {
       toast({
-        title: "Transaction Successful",
+        title: "Transaction Confirmed",
         description: "Enrollment data has been stored on the blockchain",
       })
+
+      // Update the enrollment in the database with the actual transaction hash
+      if (currentProcessingEnrollment) {
+        updateEnrollmentWithHash(currentProcessingEnrollment, hash)
+      }
     }
     if (isError && error) {
       toast({
@@ -68,8 +92,66 @@ export default function BlockchainStoragePage() {
         description: error.message || "Failed to store enrollment data on blockchain",
         variant: "destructive",
       })
+
+      // Update enrollment status to failed
+      if (currentProcessingEnrollment) {
+        setEnrollments((prev) => {
+          const updated = [...prev]
+          const index = updated.findIndex((enroll) => enroll.ipfsCid === currentProcessingEnrollment)
+          if (index !== -1) {
+            updated[index] = {
+              ...updated[index],
+              status: "failed",
+            }
+          }
+          return updated
+        })
+        setCurrentProcessingEnrollment(null)
+        setIsProcessing(false)
+      }
     }
-  }, [isSuccess, isError, error, toast])
+  }, [isConfirmed, isError, error, hash, toast, currentProcessingEnrollment])
+
+  // Update enrollment with transaction hash
+  const updateEnrollmentWithHash = async (enrollmentId: string, txHash: `0x${string}`) => {
+    try {
+      const response = await fetch("/api/blockchain/process-enrollment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          enrollmentId,
+          txHash,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (response.ok && result.success) {
+        // Update enrollment status to stored with the actual transaction hash
+        setEnrollments((prev) => {
+          const updated = [...prev]
+          const index = updated.findIndex((enroll) => enroll.ipfsCid === enrollmentId)
+          if (index !== -1) {
+            updated[index] = {
+              ...updated[index],
+              status: "stored",
+              txHash: txHash,
+            }
+          }
+          return updated
+        })
+      } else {
+        console.error("Failed to update enrollment with hash:", result.message)
+      }
+    } catch (error) {
+      console.error("Error updating enrollment with hash:", error)
+    } finally {
+      setCurrentProcessingEnrollment(null)
+      setIsProcessing(false)
+    }
+  }
 
   // Fetch enrollments from MongoDB
   useEffect(() => {
@@ -205,6 +287,7 @@ export default function BlockchainStoragePage() {
     })
 
     setIsProcessing(true)
+    setCurrentProcessingEnrollment(pendingEnrollment.ipfsCid)
 
     try {
       // Extract numeric part from studentId (assuming format like "STU-2023-12345")
@@ -243,70 +326,10 @@ export default function BlockchainStoragePage() {
         return updated
       })
 
+      setCurrentProcessingEnrollment(null)
       setIsProcessing(false)
     }
   }
-
-  // Handle successful transactions
-  useEffect(() => {
-    if (isSuccess) {
-      // Find the processing enrollment
-      const processingEnrollment = enrollments.find((enroll) => enroll.status === "processing")
-
-      if (processingEnrollment) {
-        // Generate a real transaction hash (in a real app, you'd get this from the transaction receipt)
-        const txHash = "0x" + Math.random().toString(16).substring(2, 42)
-
-        // Update the enrollment in the database
-        fetch("/api/blockchain/process-enrollment", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            enrollmentId: processingEnrollment.ipfsCid,
-            txHash: txHash,
-          }),
-        })
-
-        // Update enrollment status to stored with the transaction hash
-        setEnrollments((prev) => {
-          const updated = [...prev]
-          const index = updated.findIndex((enroll) => enroll.ipfsCid === processingEnrollment.ipfsCid)
-          if (index !== -1) {
-            updated[index] = {
-              ...updated[index],
-              status: "stored",
-              txHash: txHash,
-            }
-          }
-          return updated
-        })
-      }
-
-      setIsProcessing(false)
-    } else if (isError) {
-      // Find the processing enrollment
-      const processingEnrollment = enrollments.find((enroll) => enroll.status === "processing")
-
-      if (processingEnrollment) {
-        // Update enrollment status to failed
-        setEnrollments((prev) => {
-          const updated = [...prev]
-          const index = updated.findIndex((enroll) => enroll.ipfsCid === processingEnrollment.ipfsCid)
-          if (index !== -1) {
-            updated[index] = {
-              ...updated[index],
-              status: "failed",
-            }
-          }
-          return updated
-        })
-      }
-
-      setIsProcessing(false)
-    }
-  }, [isSuccess, isError, enrollments])
 
   const handleRetry = async (enrollment: EnrollmentItem) => {
     if (!enrollment.ipfsCid) return
@@ -445,10 +468,14 @@ export default function BlockchainStoragePage() {
               <Button
                 onClick={processNextEnrollment}
                 disabled={
-                  isProcessing || isWritePending || !enrollments.some((e) => e.status === "pending") || !isConnected
+                  isProcessing ||
+                  isWritePending ||
+                  isConfirming ||
+                  !enrollments.some((e) => e.status === "pending") ||
+                  !isConnected
                 }
               >
-                {isProcessing || isWritePending ? "Processing..." : "Process Next Enrollment"}
+                {isProcessing || isWritePending || isConfirming ? "Processing..." : "Process Next Enrollment"}
               </Button>
             </CardFooter>
           </Card>
@@ -462,13 +489,24 @@ export default function BlockchainStoragePage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
-                {(isProcessing || isWritePending) && (
+                {(isProcessing || isWritePending || isConfirming) && (
                   <div className="rounded-md bg-blue-50 p-4">
                     <div className="flex gap-3">
                       <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-blue-600"></div>
                       <div>
-                        <h3 className="font-medium">Processing Transaction</h3>
-                        <p className="text-sm text-gray-600">Storing enrollment data on the blockchain...</p>
+                        <h3 className="font-medium">
+                          {isConfirming ? "Confirming Transaction" : "Processing Transaction"}
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          {isConfirming
+                            ? "Waiting for blockchain confirmation..."
+                            : "Storing enrollment data on the blockchain..."}
+                        </p>
+                        {hash && (
+                          <p className="mt-1 text-xs text-gray-500">
+                            TX: {hash.substring(0, 10)}...{hash.substring(hash.length - 8)}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
