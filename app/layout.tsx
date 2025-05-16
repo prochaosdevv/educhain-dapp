@@ -4,6 +4,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { WalletProvider } from "@/components/wallet-provider"
+import '@rainbow-me/rainbowkit/styles.css';
 
 const inter = Inter({ subsets: ["latin"] })
 
