@@ -3,64 +3,57 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import DoctorReferencesTable from "@/components/doctor-references-table"
+import LabsTable from "@/components/labs-table"
 import Sidebar from "@/components/sidebar"
 import TopNavbar from "@/components/top-navbar"
-import AddDoctorModal from "@/components/add-doctor-modal"
-import EditDoctorModal from "@/components/edit-doctor-modal"
+import AddLabModal from "@/components/add-lab-modal"
+import EditLabModal from "@/components/edit-lab-modal"
 import DeleteConfirmationModal from "@/components/delete-confirmation-modal"
+import { Plus } from "lucide-react"
 
-interface Doctor {
+interface Lab {
   id: string
   name: string
-  specialization: string
-  mobile: string
   email: string
+  mobile: string
+  address: string
 }
 
-export default function Dashboard() {
+export default function LabsPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  const [currentDoctor, setCurrentDoctor] = useState<Doctor | null>(null)
-  const [doctorToDelete, setDoctorToDelete] = useState<Doctor | null>(null)
-  const [doctors, setDoctors] = useState<Doctor[]>([
-    {
-      id: "1",
-      name: "Dr Ruchika",
-      specialization: "Dermatologist",
-      mobile: "9990203777",
-      email: "",
-    },
-  ])
+  const [currentLab, setCurrentLab] = useState<Lab | null>(null)
+  const [labToDelete, setLabToDelete] = useState<Lab | null>(null)
+  const [labs, setLabs] = useState<Lab[]>([])
 
-  const handleAddDoctor = (doctor: { name: string; specialization: string; mobile: string; email: string }) => {
-    const newDoctor = {
+  const handleAddLab = (lab: { name: string; email: string; mobile: string; address: string }) => {
+    const newLab = {
       id: Date.now().toString(),
-      ...doctor,
+      ...lab,
     }
-    setDoctors([...doctors, newDoctor])
+    setLabs([...labs, newLab])
   }
 
-  const handleEditDoctor = (doctor: Doctor) => {
-    setDoctors(doctors.map((d) => (d.id === doctor.id ? doctor : d)))
+  const handleEditLab = (lab: Lab) => {
+    setLabs(labs.map((l) => (l.id === lab.id ? lab : l)))
   }
 
-  const handleEditClick = (doctor: Doctor) => {
-    setCurrentDoctor(doctor)
+  const handleEditClick = (lab: Lab) => {
+    setCurrentLab(lab)
     setIsEditModalOpen(true)
   }
 
-  const handleDeleteClick = (doctor: Doctor) => {
-    setDoctorToDelete(doctor)
+  const handleDeleteClick = (lab: Lab) => {
+    setLabToDelete(lab)
     setIsDeleteModalOpen(true)
   }
 
   const handleDeleteConfirm = () => {
-    if (doctorToDelete) {
-      setDoctors(doctors.filter((doctor) => doctor.id !== doctorToDelete.id))
+    if (labToDelete) {
+      setLabs(labs.filter((lab) => lab.id !== labToDelete.id))
       setIsDeleteModalOpen(false)
-      setDoctorToDelete(null)
+      setLabToDelete(null)
     }
   }
 
@@ -75,34 +68,34 @@ export default function Dashboard() {
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h1 className="text-2xl font-medium text-slate-700">
-                    Doctor References <span className="text-slate-500 font-normal">Listing</span>
+                    Lab's <span className="text-slate-500 font-normal">Listing</span>
                   </h1>
                 </div>
                 <Button
                   className="bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
                   onClick={() => setIsAddModalOpen(true)}
                 >
-                  <span className="mr-2">+</span> Add Doctor Reference
+                  <Plus className="h-4 w-4 mr-2" /> Add Location
                 </Button>
               </div>
-              <DoctorReferencesTable doctors={doctors} onEdit={handleEditClick} onDelete={handleDeleteClick} />
+              <LabsTable labs={labs} onEdit={handleEditClick} onDelete={handleDeleteClick} />
             </div>
           </Card>
         </main>
       </div>
 
-      <AddDoctorModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSave={handleAddDoctor} />
-      <EditDoctorModal
+      <AddLabModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSave={handleAddLab} />
+      <EditLabModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
-        onSave={handleEditDoctor}
-        doctor={currentDoctor}
+        onSave={handleEditLab}
+        lab={currentLab}
       />
       <DeleteConfirmationModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleDeleteConfirm}
-        itemName={doctorToDelete?.name || ""}
+        itemName={labToDelete?.name || ""}
       />
     </div>
   )

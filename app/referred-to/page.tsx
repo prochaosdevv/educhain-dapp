@@ -18,7 +18,7 @@ interface Doctor {
   email: string
 }
 
-export default function Dashboard() {
+export default function ReferredToPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
@@ -75,14 +75,14 @@ export default function Dashboard() {
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h1 className="text-2xl font-medium text-slate-700">
-                    Doctor References <span className="text-slate-500 font-normal">Listing</span>
+                    Referred To <span className="text-slate-500 font-normal">Listing</span>
                   </h1>
                 </div>
                 <Button
                   className="bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
                   onClick={() => setIsAddModalOpen(true)}
                 >
-                  <span className="mr-2">+</span> Add Doctor Reference
+                  <span className="mr-2">+</span> Add Referred To
                 </Button>
               </div>
               <DoctorReferencesTable doctors={doctors} onEdit={handleEditClick} onDelete={handleDeleteClick} />

@@ -1,17 +1,10 @@
-import type React from "react"
-import type { Metadata } from "next"
-import { Inter } from "next/font/google"
-import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
-import { WalletProvider } from "@/components/wallet-provider"
-import '@rainbow-me/rainbowkit/styles.css';
-
-const inter = Inter({ subsets: ["latin"] })
+import type { Metadata } from 'next'
+import './globals.css'
 
 export const metadata: Metadata = {
-  title: "Blockchain Certificate Management",
-  description: "A blockchain-based certificate management system",
-  generator: "hmt",
+  title: 'v0 App',
+  description: 'Created with v0',
+  generator: 'v0.dev',
 }
 
 export default function RootLayout({
@@ -21,11 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          <WalletProvider>{children}</WalletProvider>
-        </ThemeProvider>
-      </body>
+      <body>{children}</body>
     </html>
   )
 }
