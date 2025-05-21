@@ -1,10 +1,16 @@
-import type { Metadata } from 'next'
-import './globals.css'
+import type React from "react"
+import type { Metadata } from "next"
+import { Inter } from "next/font/google"
+import "./globals.css"
+import { ThemeProvider } from "@/components/theme-provider"
+import { WalletProvider } from "@/components/wallet-provider"
+
+const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
-  generator: 'v0.dev',
+  title: "Blockchain Certificate Management",
+  description: "A blockchain-based certificate management system",
+  generator: "hmt",
 }
 
 export default function RootLayout({
@@ -14,7 +20,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className={inter.className}>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+          <WalletProvider>{children}</WalletProvider>
+        </ThemeProvider>
+      </body>
     </html>
   )
 }
