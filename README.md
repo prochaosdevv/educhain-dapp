@@ -2,6 +2,8 @@
 
 # 🚀 Getting Started
 
+### Educhain is an open-source university project that uses blockchain and decentralised file storage to make university data, especially certificates, more robust by recording and tracking it.
+
 ### Prerequisites
 
 - Node.js 18+ and npm/yarn
